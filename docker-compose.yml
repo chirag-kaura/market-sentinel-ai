@@ -1,0 +1,156 @@
+services:
+  # -------------------------------------------------------------
+  # PROFILE: core (PostgreSQL + pgvector, FastAPI, React Frontend)
+  # -------------------------------------------------------------
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: sentinel-postgres
+    profiles: ["core", "data", "streaming", "monitoring"]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sentinel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sentinel_secure_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-market_sentinel}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/sql/01_initial_schema.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+          cpus: '1.0'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentinel -d market_sentinel"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: sentinel-redis
+    profiles: ["core", "streaming"]
+    ports:
+      - "6379:6379"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  backend:
+    build:
+      context: .
+      dockerfile: deployment/docker/backend.Dockerfile
+    container_name: sentinel-backend
+    profiles: ["core"]
+    environment:
+      DATABASE_URL: postgresql://sentinel:sentinel_secure_pass@postgres:5432/market_sentinel
+      REDIS_URL: redis://redis:6379/0
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-sentinel_prod_jwt_secret_key_long}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+          cpus: '1.5'
+
+  frontend:
+    build:
+      context: .
+      dockerfile: deployment/docker/frontend.Dockerfile
+    container_name: sentinel-frontend
+    profiles: ["core"]
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+
+  # -------------------------------------------------------------
+  # PROFILE: streaming (Redpanda single broker)
+  # -------------------------------------------------------------
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v23.3.4
+    container_name: sentinel-redpanda
+    profiles: ["streaming"]
+    command:
+      - redpanda start
+      - --smp 1
+      - --memory 1G
+      - --reserve-memory 0M
+      - --overprovisioned
+      - --kafka-addr PLAINTEXT://0.0.0.0:29092,OUTSIDE://0.0.0.0:9092
+      - --advertise-kafka-addr PLAINTEXT://redpanda:29092,OUTSIDE://localhost:9092
+    ports:
+      - "9092:9092"
+    deploy:
+      resources:
+        limits:
+          memory: 1280M
+          cpus: '1.0'
+
+  # -------------------------------------------------------------
+  # PROFILE: monitoring (Prometheus + Grafana + Alertmanager)
+  # -------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: sentinel-prometheus
+    profiles: ["monitoring"]
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deployment/alertmanager/surveillance_alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+
+  grafana:
+    image: grafana/grafana:10.2.2
+    container_name: sentinel-grafana
+    profiles: ["monitoring"]
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./deployment/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./deployment/grafana/provisioning:/etc/grafana/provisioning:ro
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    container_name: sentinel-alertmanager
+    profiles: ["monitoring"]
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./deployment/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+
+volumes:
+  postgres_data:

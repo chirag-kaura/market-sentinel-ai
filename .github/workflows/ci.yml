@@ -1,0 +1,39 @@
+name: Market Sentinel AI — Continuous Integration & Quality Gate
+
+"on":
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  backend-quality-and-test:
+    name: Backend Test Suite & Quality Gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov ruff black
+
+      - name: Code Quality & Linting (Ruff)
+        run: |
+          ruff check . --ignore E501
+
+      - name: Execute Full Automated Test Suite
+        env:
+          DATABASE_URL: "sqlite:///./ci_test.db"
+          JWT_SECRET_KEY: "ci-test-dummy-jwt-secret-key-32-chars-long"
+        run: |
+          python -m pytest tests/unit tests/integration -v --durations=10

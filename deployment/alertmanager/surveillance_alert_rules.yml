@@ -1,0 +1,29 @@
+groups:
+  - name: sentinel_surveillance_rules
+    rules:
+      - alert: HighSurveillanceAlertRate
+        expr: rate(sentinel_surveillance_alerts_total{priority="CRITICAL"}[5m]) > 0.5
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Abnormal surge in CRITICAL surveillance alerts"
+          description: "Critical risk alerts rate exceeds 0.5/sec for over 2 minutes."
+
+      - alert: APIHighLatencyWarning
+        expr: histogram_quantile(0.95, sum(rate(sentinel_http_request_duration_seconds_bucket[5m])) by (le)) > 1.5
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "p95 API Latency Exceeded 1.5s"
+          description: "API p95 response latency is degraded."
+
+      - alert: HighAPIErrorRate
+        expr: sum(rate(sentinel_http_requests_total{status_code=~"5.."}[5m])) / sum(rate(sentinel_http_requests_total[5m])) > 0.05
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High HTTP 5xx Error Rate"
+          description: "5xx errors exceed 5% of total incoming requests."

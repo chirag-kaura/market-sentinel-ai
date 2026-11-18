@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "NewsEventMessage",
+  "description": "Standardized schema for financial news events published to Redpanda topic news.events.raw",
+  "type": "object",
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique event identifier (UUIDv4)"
+    },
+    "canonical_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Normalized canonical article URL without tracking params"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 500,
+      "description": "Cleaned article headline"
+    },
+    "summary": {
+      "type": ["string", "null"],
+      "description": "Cleaned article synopsis or excerpt"
+    },
+    "body_text": {
+      "type": ["string", "null"],
+      "description": "Full extracted article body text"
+    },
+    "source_outlet": {
+      "type": "string",
+      "description": "Publishing agency (e.g. Economic Times, Moneycontrol)"
+    },
+    "detected_symbols": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Exchange symbols detected in article (e.g. ['RELIANCE', 'TCS'])"
+    },
+    "published_at_utc": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Article publication timestamp in ISO 8601 UTC"
+    },
+    "ingested_at_utc": {
+      "type": "string",
+      "format": "date-time",
+      "description": "System ingestion timestamp in ISO 8601 UTC"
+    },
+    "headline_hash": {
+      "type": "string",
+      "description": "MD5 hash of alphanumeric lowercase headline for syndicate deduplication"
+    }
+  },
+  "required": [
+    "event_id",
+    "canonical_url",
+    "title",
+    "source_outlet",
+    "published_at_utc",
+    "ingested_at_utc",
+    "headline_hash"
+  ],
+  "additionalProperties": false
+}

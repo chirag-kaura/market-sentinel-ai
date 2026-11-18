@@ -1,0 +1,298 @@
+# CHANGELOG — MARKET SENTINEL AI
+
+All notable changes, phase milestones, and architectural updates will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to Semantic Versioning.
+
+---
+
+## [Unreleased]
+
+### Added - 2026-11-17
+- **Phase 9 — Generative AI, RAG & Evidence-Grounded Explanations (Complete Phase Closure)**:
+  - **Step 9.1**: Implemented `FinancialDocumentParser` in `intelligence/rag/document_parser.py` parsing multi-page exchange disclosures, stripping CIN/pagination noise, detecting section boundaries, and identifying financial tables. Unit tests `tests/unit/test_document_parser.py` (3 passed in 0.04s).
+  - **Step 9.2**: Implemented `FinancialTextChunker` in `intelligence/rag/chunking_engine.py` with numerical boundary preservation, rolling sentence overlap, and contextual metadata header injection (`[Company: X | Ticker: Y | Section: Z | Date: T]`). Unit tests `tests/unit/test_chunking_engine.py` (2 passed in 0.04s).
+  - **Step 9.3**: Implemented `CPUDenseEmbeddingPipeline` in `intelligence/rag/embedding_pipeline.py` standardizing on 384-dimensional unit-normalized embeddings (`all-MiniLM-L6-v2`) with deterministic offline simulation. Unit tests `tests/unit/test_embedding_pipeline.py` (3 passed in 0.20s).
+  - **Step 9.4**: Implemented `DocumentChunkVectorModel` and `VectorStoreRepository` in `intelligence/rag/vector_store.py` providing PostgreSQL `pgvector` persistence and filtered cosine similarity search. Unit tests `tests/unit/test_vector_store.py` (2 passed in 0.67s).
+  - **Step 9.5**: Implemented `HybridFilteredRetrievalEngine` in `intelligence/rag/retrieval_engine.py` enforcing strict ticker isolation, temporal lookback windows ($14\text{ days}$), and exponential time decay weighting ($T_{1/2} = 7.0\text{ days}$). Unit tests `tests/unit/test_retrieval_engine.py` (1 passed in 0.69s).
+  - **Step 9.6**: Implemented decoupled LLM provider abstraction in `intelligence/rag/llm_provider.py` (`BaseLLMProvider`, `GroqLLMProvider`, `MockLLMProvider`) supporting cloud inference and zero-cost offline test execution. Unit tests `tests/unit/test_llm_provider.py` (3 passed in 0.60s).
+  - **Step 9.7**: Implemented `GroundedPromptBuilder` in `intelligence/rag/prompt_builder.py` injecting quantitative market metrics, explicit citation tokens (`[EVIDENCE:chunk_id]`), and strict zero-hallucination directives. Unit tests `tests/unit/test_prompt_builder.py` (2 passed in 0.62s).
+  - **Step 9.8**: Implemented `InvestigationDossierGenerator` in `intelligence/rag/dossier_generator.py` synthesizing standardized 8-point regulatory surveillance dossiers with audit lineage. Unit tests `tests/unit/test_dossier_generator.py` (2 passed in 0.69s).
+  - **Step 9.9**: Implemented `HallucinationGroundingAuditor` in `intelligence/rag/grounding_auditor.py` auditing dossier citations, zero-evidence adherence, and cross-company contamination. Unit tests `tests/unit/test_grounding_auditor.py` (3 passed in 0.70s).
+  - **Step 9.10**: Implemented `TokenBudgetCostController` in `intelligence/rag/cost_controller.py` providing response caching with 1-hour TTL, sliding-window rate limiting, and token cost tracking. Unit tests `tests/unit/test_cost_controller.py` (3 passed in 0.62s). Authored step report [`docs/step_reports/phase_09_step_10_cost_controls.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_09_step_10_cost_controls.md) and Phase 9 Completion Report [`docs/phase_reports/phase_09_completion_report.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/phase_reports/phase_09_completion_report.md).
+  - Executed full repository regression test suite: **160 passed in 7.31s** with 100% pass rate.
+- **Phase 8 — Market-News Correlation and Risk Alert Engine (Complete Phase Closure)**:
+  - **Step 8.1**: Implemented `TemporalCorrelationAligner` in `intelligence/correlation/temporal_aligner.py` pairing market anomalies with news streams across $[-48\text{h}, +24\text{h}]$ lead/lag windows, identifying `PRE_ANNOUNCEMENT_LEAK`, `COINCIDENT_REACTION`, `POST_NEWS_ABSORPTION`, and `UNEXPLAINED_ABSENCE`. Unit tests `tests/unit/test_temporal_correlation.py` (4 passed in 0.04s).
+  - **Step 8.2**: Implemented `MultiDimensionalRiskScorer` in `intelligence/correlation/risk_scorer.py` fusing market anomalies ($45\%$), temporal suspicion ($25\%$), event relevance ($15\%$), sentiment-price divergence ($15\%$), and unexplained non-disclosure penalties into a normalized $[0.0, 1.0]$ Composite Risk Score. Unit tests `tests/unit/test_risk_scorer.py` (3 passed in 0.04s).
+  - **Step 8.3**: Implemented `AlertPrioritizer` in `intelligence/correlation/alert_prioritizer.py` categorizing composite risk scores into 5 standardized tiers (`INFORMATIONAL`, `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`), assigning deterministic review turnaround SLAs ($2\text{h}$ for Critical to $168\text{h}$ for Informational), and generating investigation actions. Unit tests `tests/unit/test_alert_prioritizer.py` (4 passed in 0.05s).
+  - **Step 8.4**: Implemented `SurveillanceAlertSchema` and `SurveillanceAlertModel` in `intelligence/correlation/alert_models.py` with Pydantic v2 validation and SQLAlchemy ORM persistence mapped to PostgreSQL `surveillance_alerts`. Unit tests `tests/unit/test_alert_models.py` (3 passed in 0.49s).
+  - **Step 8.5**: Implemented `HistoricalSurveillanceReplayHarness` in `intelligence/correlation/backtesting_harness.py` simulating point-in-time chronological surveillance execution without look-ahead bias. Unit tests `tests/unit/test_backtesting_harness.py` (1 passed in 0.43s).
+  - **Step 8.6**: Implemented `AlertQualityAuditor` in `intelligence/correlation/quality_auditor.py` computing alert fatigue indexes, actionable ratios, and Herfindahl-Hirschman ticker concentration metrics. Unit tests `tests/unit/test_quality_auditor.py` (2 passed in 0.48s). Authored step report [`docs/step_reports/phase_08_step_06_alert_quality_audit.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_08_step_06_alert_quality_audit.md) and Phase 8 Completion Report [`docs/phase_reports/phase_08_completion_report.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/phase_reports/phase_08_completion_report.md).
+  - Executed full repository regression test suite: **136 passed in 10.52s** with 100% pass rate.
+- **Phase 7 — NLP & News Intelligence Pipeline (Complete Phase Closure)**:
+  - **Step 7.1**: Implemented `FinancialTextCleaner` in `intelligence/nlp/text_cleaner.py` stripping HTML, datelines, wire agency tags (Reuters, PTI, Bloomberg), boilerplate disclaimers, and generating MD5 deduplication signatures. Unit tests `tests/unit/test_text_cleaner.py` (5 passed in 0.04s).
+  - **Step 7.2**: Implemented `FinancialNERExtractor` in `intelligence/nlp/entity_recognizer.py` extracting companies, tickers, regulators (SEBI, RBI, CCI, ED, NCLT), monetary values, percentages, and executives with non-overlapping span resolution. Unit tests `tests/unit/test_entity_recognizer.py` (5 passed in 0.04s).
+  - **Step 7.3**: Implemented `EntityTickerResolver` in `intelligence/nlp/ticker_resolver.py` mapping entities, colloquial aliases, and conglomerate parent roots to canonical exchange symbols with context-aware disambiguation. Unit tests `tests/unit/test_ticker_resolver.py` (5 passed in 0.05s).
+  - **Step 7.4**: Implemented `FinancialEventClassifier` in `intelligence/nlp/event_classifier.py` classifying multi-category financial events (Earnings, M&A, Regulatory Actions, Fraud/Insider Inquiries) with normalized surveillance relevance weighting. Unit tests `tests/unit/test_event_classifier.py` (5 passed in 0.06s).
+  - **Step 7.5**: Implemented `FinancialSentimentEngine` in `intelligence/nlp/sentiment_engine.py` using Loughran-McDonald inspired financial polarities, distance-bounded negation reversal, and uncertainty ratio tracking. Unit tests `tests/unit/test_sentiment_engine.py` (5 passed in 0.06s).
+  - **Step 7.6**: Implemented `NewsNoveltyIntensityEngine` in `intelligence/nlp/novelty_engine.py` providing rolling 24-hour story clustering, syndicated duplicate suppression, exponential decay intensity ($T_{1/2} = 6.0\text{h}$), and breaking news burst detection. Unit tests `tests/unit/test_novelty_engine.py` (3 passed in 0.05s).
+  - **Step 7.7**: Implemented end-to-end benchmark test suite `tests/unit/test_nlp_benchmark_verification.py` verifying 100% precision across benchmark market scenarios. Authored step report [`docs/step_reports/phase_07_step_07_nlp_evaluation.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_07_step_07_nlp_evaluation.md) and Phase 7 Completion Report [`docs/phase_reports/phase_07_completion_report.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/phase_reports/phase_07_completion_report.md).
+  - Executed full repository regression test suite: **119 passed in 7.54s** with 100% pass rate.
+- **Phase 6 — Step 6.7**:
+  - Implemented reproducible production inference packaging and multi-model ensemble engine in `models/inference/ensemble_engine.py` (`SurveillanceEnsembleEngine`, `SurveillanceInferenceResult`):
+    - Weighted fusion: $40\%$ Statistical Baseline + $40\%$ Multivariate Isolation Forest + $20\%$ Dynamic Volatility Band Breaches.
+    - Continuous anomaly score mapping bounded in $[0.0, 1.0]$.
+    - Automated surveillance severity tier categorization (`NORMAL`, `WATCHLIST`, `SUSPICIOUS`, `CRITICAL_ALERT`).
+    - Granular sub-score tracking and feature snapshot attribution preserving audit trail integrity for regulatory compliance.
+    - Sub-millisecond CPU latency benchmark ($\approx 2.5\text{ ms}$ per equity record), fully satisfying the $< 10\text{ ms}$ SLA.
+  - Added integration test suite `tests/integration/test_model_inference_pipeline.py` (3 passed in 2.84s).
+  - Executed full repository regression test suite: **90 passed in 7.34s** with 100% pass rate.
+  - Authored step report [`docs/step_reports/phase_06_step_07_inference_packaging.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_06_step_07_inference_packaging.md).
+  - Authored milestone completion report [`docs/phase_reports/phase_06_completion_report.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/phase_reports/phase_06_completion_report.md) formally closing Phase 6.
+- **Phase 6 — Step 6.6**:
+  - Implemented standardized model experiment and lineage tracker in `models/tracking/mlflow_tracker.py` (`SurveillanceModelTracker`):
+    - Systematically logs training runs, hyperparameter dictionaries, evaluation metrics, and model tags.
+    - Captures multi-fold chronological walk-forward cross-validation performance with detailed fold breakdowns.
+    - Serializes versioned model artifacts locally under `data/models/mlflow/` with zero external server dependencies.
+    - Seamless fallback between native MLflow and structured JSON file store.
+  - Added automated unit test suite `tests/unit/test_mlflow_tracking.py` (3 passed in 0.90s).
+  - Authored step report [`docs/step_reports/phase_06_step_06_mlflow_tracking.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_06_step_06_mlflow_tracking.md).
+- **Phase 6 — Step 6.5**:
+  - Authored formal Quantitative Model Benchmark & Comparative Analysis Report in [`docs/models/model_benchmark_report.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/models/model_benchmark_report.md) evaluating Statistical Baseline vs Isolation Forest vs Dynamic Volatility Envelopes across latency, memory, explainability, and multi-dimensional sensitivity.
+  - Implemented automated benchmark scenario test suite `tests/unit/test_model_benchmark_verification.py` proving that Isolation Forest isolates subtle multi-dimensional insider leaks that evade linear 3-sigma thresholds (3 passed in 2.85s).
+  - Authored step report [`docs/step_reports/phase_06_step_05_model_benchmark.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_06_step_05_model_benchmark.md).
+- **Phase 6 — Step 6.4**:
+  - Implemented chronological walk-forward time-series validation engine in `models/validation/walk_forward.py` (`TimeSeriesWalkForwardValidator`, `FoldMetrics`):
+    - Generates strictly causal expanding-window and rolling-window chronological splits.
+    - Enforces temporal boundary inequalities ($\max(\text{train}) + \text{embargo} \le \min(\text{test})$) with 2-day purging buffers to prevent autocorrelation leakage.
+    - Automated out-of-sample detector evaluation harness executing walk-forward cross-validation.
+  - Added automated unit test suite `tests/unit/test_walk_forward_validation.py` (5 passed in 3.08s).
+  - Authored step report [`docs/step_reports/phase_06_step_04_walk_forward_validation.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_06_step_04_walk_forward_validation.md).
+- **Phase 6 — Step 6.3**:
+  - Implemented time-varying conditional volatility models in `models/statistical/volatility_models.py`:
+    - `EWMAVolatilityForecaster`: Recursive RiskMetrics exponential weighting ($\lambda = 0.94$) for instant streaming and batch evaluation.
+    - `GARCHVolatilityModel`: Maximum likelihood estimation of GARCH(1,1) conditional volatility enforcing stationarity ($\alpha + \beta < 1.0$) with calibrated fallback.
+    - `DynamicVolatilityBandGenerator`: Adaptive envelope generator scaling $\pm 3.0\sigma$ price bands to market volatility regimes.
+  - Added automated unit test suite `tests/unit/test_volatility_models.py` (4 passed in 1.45s).
+  - Authored step report [`docs/step_reports/phase_06_step_03_volatility_models.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_06_step_03_volatility_models.md).
+- **Phase 6 — Step 6.2**:
+  - Implemented unsupervised machine learning anomaly detection engine in `models/ml/isolation_forest_detector.py` (`IsolationForestAnomalyDetector`):
+    - Multi-feature surveillance vector (`log_return_1d`, `volatility_20d`, `parkinson_volatility_20d`, `volume_zscore_20d`, `delivery_ratio`, `news_price_divergence`, `volume_news_divergence`).
+    - Robust median/IQR scaling (`RobustScaler`) resistant to historical outliers.
+    - Continuous score normalization mapping path lengths into intuitive $[0.0, 1.0]$ anomaly scores.
+    - Heuristic feature attribution identifying the principal metric driving multidimensional anomaly isolation.
+  - Added automated unit test suite `tests/unit/test_isolation_forest.py` (4 passed in 2.85s).
+  - Authored step report [`docs/step_reports/phase_06_step_02_isolation_forest.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_06_step_02_isolation_forest.md).
+- **Phase 6 — Step 6.1**:
+  - Implemented statistical baseline anomaly detection engine in `models/statistical/baseline_detector.py` (`StatisticalBaselineDetector`):
+    - Evaluates rolling return Z-scores and 20-day volume Z-scores.
+    - Fits non-parametric empirical percentile cutoffs ($P_{95}, P_{99}, P_{99.9}$) to capture leptokurtic distributions.
+    - Implemented delivery divergence detection ($Z_{\text{vol}} \ge 2.5 \land \text{delivery} \le 30\%$).
+    - Computes composite anomaly score in $[0.0, 1.0]$ and categorizes into 4 severity tiers (`NORMAL`, `WATCHLIST`, `SUSPICIOUS`, `ALERT`).
+  - Added automated unit test suite `tests/unit/test_statistical_baseline.py` (3 passed in 1.26s).
+  - Authored step report [`docs/step_reports/phase_06_step_01_statistical_baseline.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_06_step_01_statistical_baseline.md).
+- **Phase 5 — Step 5.7 & Phase 5 Milestone Completion**:
+  - Implemented programmatic feature leakage and look-ahead bias audit test suite in `tests/unit/test_feature_leakage_audit.py`:
+    - Future price perturbation test verifying exact $0.000000000000$ variance on past features.
+    - Future volume shock test verifying zero backward distortion.
+    - Post-market disclosure boundary test verifying 15:31 IST filings roll over to $t+1$ with zero same-day leakage.
+    - Multi-symbol independence test proving zero cross-contamination when interleaving equities.
+  - Executed full repository test suite with 100% pass rate (65 out of 65 tests passed in 15.13s).
+  - Authored formal audit report [`docs/models/feature_leakage_audit.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/models/feature_leakage_audit.md).
+  - Authored step report [`docs/step_reports/phase_05_step_07_feature_leakage_audit.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_05_step_07_feature_leakage_audit.md).
+  - Authored formal Phase 5 milestone completion report [`docs/phase_reports/phase_05_completion_report.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/phase_reports/phase_05_completion_report.md).
+- **Phase 5 — Step 5.6**:
+  - Authored comprehensive Feature Dictionary in [`docs/data/feature_dictionary.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/data/feature_dictionary.md) detailing technical specifications, formulas, lookback horizons, distribution bounds, and surveillance rationales for 25+ features across 5 families:
+    - Price Dynamics & Returns (`log_return_1d`, `log_return_5d`, `log_return_20d`, `proximity_to_52w_high/low`).
+    - Volatility & Dispersion (`volatility_20d`, `parkinson_volatility_20d`).
+    - Volume Dynamics & Liquidity (`volume_mean_20d`, `volume_zscore_20d`, `delivery_ratio`, `delivery_ratio_zscore_20d`).
+    - News & Corporate Disclosures (`news_count_1d/3d/7d`, `news_velocity_zscore_30d`, disclosure categories, sentiment polarity).
+    - Cross-Modal Surveillance Interactions (`news_price_divergence`, `volume_news_divergence`, `sentiment_return_alignment`, `is_unbacked_market_move`).
+  - Added automated unit test suite `tests/unit/test_feature_dictionary.py` enforcing 100% parity between code output schema and markdown documentation (3 passed in 1.32s).
+  - Authored step report [`docs/step_reports/phase_05_step_06_feature_dictionary.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_05_step_06_feature_dictionary.md).
+- **Phase 5 — Step 5.5**:
+  - Implemented multimodal market-news feature alignment engine in `processing/features/multimodal_alignment.py` (`MultimodalFeatureAligner`):
+    - Left-outer joins daily market time series with daily news features on composite key `(symbol, trade_date)`.
+    - Imputes non-news trading sessions with neutral baseline priors (`news_count=0`, `sentiment=0.0`).
+    - Computes `news_price_divergence` measuring return magnitude relative to logarithmic news coverage.
+    - Computes `volume_news_divergence` measuring abnormal volume Z-score unbacked by news velocity.
+    - Computes `sentiment_return_alignment` directional coherence flags ($+1, 0, -1$).
+    - Computes `is_unbacked_market_move` binary indicator for high-volatility price action in news vacuums.
+  - Added automated unit test suite `tests/unit/test_multimodal_alignment.py` (4 passed in 1.29s).
+  - Authored step report [`docs/step_reports/phase_05_step_05_multimodal_alignment.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_05_step_05_multimodal_alignment.md).
+- **Phase 5 — Step 5.4**:
+  - Implemented news and corporate disclosure feature extraction pipeline in `processing/features/news_features.py` (`NewsFeatureExtractor`):
+    - Multi-day news arrival intensity (1d, 3d, 7d).
+    - 30-day baseline symbol-relative news velocity Z-scores (`news_velocity_zscore_30d`).
+    - Corporate announcement binary flags (`has_financial_results`, `has_board_meeting`, `has_mna_filing`, `has_compliance_action`).
+    - Loughran-McDonald inspired lexicon sentiment polarity in $[-1.0, +1.0]$.
+    - Causal market attribution logic shifting post-15:30 IST disclosures to the next trade date to prevent look-ahead bias.
+  - Added automated unit test suite `tests/unit/test_news_features.py` (4 passed in 1.25s).
+  - Authored step report [`docs/step_reports/phase_05_step_04_news_features.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_05_step_04_news_features.md).
+- **Phase 5 — Step 5.3**:
+  - Implemented news and corporate disclosure exploratory data analysis (EDA) engine in `processing/eda/news_eda.py` (`NewsDisclosureEDAProfiler`):
+    - Assesses market hours (09:15–15:30 IST / 03:45–10:00 UTC) vs off-market and weekend publication distributions.
+    - Profiles symbol coverage skew and multi-entity co-occurrence.
+    - Categorizes official regulatory announcements (Financial Results, Board Meetings, Compliance, Corporate Actions).
+    - Computes inter-arrival time distributions (mean, median, 95th percentile).
+  - Added automated unit test suite `tests/unit/test_news_eda.py` (4 passed in 1.21s).
+  - Authored formal news & disclosure EDA report [`docs/models/eda_news_report.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/models/eda_news_report.md).
+  - Authored step report [`docs/step_reports/phase_05_step_03_news_eda.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_05_step_03_news_eda.md).
+- **Phase 5 — Step 5.2**:
+  - Implemented market feature engineering pipeline in `processing/features/market_features.py` (`MarketFeatureExtractor`):
+    - Multi-horizon cumulative log returns (1-day, 5-day, 20-day).
+    - 20-day rolling close-to-close annualized volatility.
+    - Parkinson high-low intraday extreme value volatility estimator.
+    - 20-day rolling volume mean, std, and volume Z-scores.
+    - Delivery ratio ($\text{Delivery Qty} / \text{Traded Qty}$) and 20-day delivery Z-scores.
+    - 52-week (252-day) high and low proximity ratios.
+    - Bulk extraction engine isolating rolling windows per symbol to eliminate cross-contamination.
+  - Added automated unit test suite `tests/unit/test_market_features.py` (3 passed in 1.28s).
+  - Authored step report [`docs/step_reports/phase_05_step_02_market_features.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_05_step_02_market_features.md).
+- **Phase 5 — Step 5.1**:
+  - Implemented financial market exploratory data analysis (EDA) engine in `processing/eda/market_eda.py` (`MarketEDAProfiler`):
+    - Computes strictly backward-looking log returns, mean, variance, annualized volatility, Fisher skewness, and Fisher excess kurtosis.
+    - Evaluates Jarque-Bera normality tests for fat-tail characterization.
+    - Analyzes volume, turnover (INR Crores), delivery-to-traded liquidity ratios, and lag-1 autocorrelation of squared returns for volatility clustering.
+  - Added automated unit test suite `tests/unit/test_market_eda.py` (4 passed in 3.04s).
+  - Authored comprehensive market EDA statistical report [`docs/models/eda_market_report.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/models/eda_market_report.md).
+  - Authored step report [`docs/step_reports/phase_05_step_01_market_eda.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_05_step_01_market_eda.md).
+- **Phase 4 — Step 4.7 & Phase 4 Milestone Completion**:
+  - Implemented streaming integration and resilience test suite `tests/integration/test_streaming_fault_tolerance.py`:
+    - Poison-pill isolation and DLQ routing without pipeline interruption.
+    - Consumer crash and stream replay idempotency (zero duplicate records).
+    - High-throughput event burst buffering and automatic window flushing.
+    - Full end-to-end streaming lifecycle: Producer $\rightarrow$ Schema Validation $\rightarrow$ Spark/Pandas Window Spike Stream Engine $\rightarrow$ Snappy Parquet Sink Writer.
+  - Executed full repository test suite with 100% pass rate (39 out of 39 tests passed in 5.21s).
+  - Authored step report [`docs/step_reports/phase_04_step_07_streaming_integration_report.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_04_step_07_streaming_integration_report.md).
+  - Authored formal milestone completion report [`docs/phase_reports/phase_04_completion_report.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/phase_reports/phase_04_completion_report.md).
+- **Phase 4 — Step 4.6**:
+  - Implemented streaming persistence pipeline in `streaming/sink_writer.py` (`StreamingSinkWriter`):
+    - Multi-type memory buffering (`news`, `corporate`, `spikes`) with configurable auto-flush batch thresholds and explicit flush hooks.
+    - Idempotent Snappy-compressed columnar Parquet persistence partitioned by year/month under `data/processed/streaming/`.
+    - Key-based in-batch record deduplication (`event_id`, `spike_id`, `canonical_url`).
+  - Added automated unit test suite `tests/unit/test_streaming_sink_writer.py` (4 passed in 2.13s).
+  - Added step report [`docs/step_reports/phase_04_step_06_streaming_persistence.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_04_step_06_streaming_persistence.md).
+- **Phase 4 — Step 4.5**:
+  - Implemented Spark Structured Streaming news spike analytics engine in `processing/spark/news_spike_stream.py`:
+    - Full PySpark streaming query definition reading from `news.events.raw`, exploding tagged tickers, watermarking with 10-minute delay, computing 1-hour event-time window counts, and sinking spikes to `news.intensity.spikes`.
+    - Pure-Python/Pandas micro-batch simulation engine enabling deterministic test execution without requiring a local JVM.
+  - Added automated unit test suite `tests/unit/test_spark_streaming.py` (4 passed in 2.82s).
+  - Added step report [`docs/step_reports/phase_04_step_05_spark_streaming.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_04_step_05_spark_streaming.md).
+- **Phase 4 — Step 4.4**:
+  - Implemented resilient streaming event consumers in `streaming/consumers/`:
+    - `news_event_consumer.py`: Subscribes to `news.events.raw` under consumer group `sentinel-news-consumers`, validates payloads against JSON schema, enforces manual offset commits post-persistence, and routes malformed payloads to `data/quarantine/invalid_stream_events.jsonl`.
+    - `corporate_event_consumer.py`: Subscribes to `corporate.events.raw` under consumer group `sentinel-corporate-consumers`.
+  - Added automated unit test suite `tests/unit/test_event_consumers.py` (3 passed in 0.60s).
+  - Added step report [`docs/step_reports/phase_04_step_04_event_consumers.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_04_step_04_event_consumers.md).
+- **Phase 4 — Step 4.3**:
+  - Implemented streaming event producers in `streaming/producers/`:
+    - `news_event_producer.py`: Serializes and publishes financial news articles to Redpanda topic `news.events.raw`, keying by detected primary symbol (or `'MARKET'`) with MD5 headline hashing.
+    - `corporate_event_producer.py`: Serializes and publishes corporate disclosures and regulatory filings to Redpanda topic `corporate.events.raw`, keying by exchange symbol.
+    - Implemented transparent mock/dry-run mode for local unit testing when the broker container is inactive.
+  - Added automated unit test suite `tests/unit/test_event_producers.py` validating 100% JSON schema compliance (2 passed in 0.17s).
+  - Added step report [`docs/step_reports/phase_04_step_03_event_producers.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_04_step_03_event_producers.md).
+- **Phase 4 — Step 4.2**:
+  - Implemented resource-constrained Redpanda single-broker Docker Compose configuration in [`deployment/docker/docker-compose.streaming.yml`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/deployment/docker/docker-compose.streaming.yml) (assigned to profile `streaming`, capped at $1.5\text{ GB}$ RAM, with Redpanda Console capped at $256\text{ MB}$).
+  - Created automated topic provisioning script [`scripts/setup_streaming_topics.py`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/scripts/setup_streaming_topics.py) establishing `news.events.raw` (3 partitions, 7d retention) and `corporate.events.raw` (3 partitions, 30d retention).
+  - Added automated unit test suite `tests/unit/test_streaming_setup.py` (3 passed in 2.61s).
+  - Added step report [`docs/step_reports/phase_04_step_02_redpanda_setup.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_04_step_02_redpanda_setup.md).
+- **Phase 4 — Step 4.1**:
+  - Authored [`docs/architecture/streaming_architecture.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/architecture/streaming_architecture.md) establishing Redpanda/Spark streaming topology, single-broker resource containment ($\le 3.5\text{ GB}$ total under Compose profile `streaming`), and topic partitioning by primary exchange symbol (`news.events.raw`, `corporate.events.raw`).
+  - Authored Draft-07 JSON schemas for streaming events:
+    - `streaming/schemas/news_event_schema.json`: Formal schema for incoming financial media articles.
+    - `streaming/schemas/corporate_event_schema.json`: Formal schema for official corporate disclosures and regulatory filings.
+  - Added automated unit test suite `tests/unit/test_streaming_schemas.py` (4 passed in 0.21s).
+  - Added step report [`docs/step_reports/phase_04_step_01_streaming_architecture.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_04_step_01_streaming_architecture.md).
+- **Phase 3 — Step 3.7 & Phase 3 Milestone Closure**:
+  - Implemented end-to-end integration test suite [`tests/integration/test_batch_pipeline_e2e.py`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/tests/integration/test_batch_pipeline_e2e.py) validating the complete batch execution loop (raw reports $\rightarrow$ parsing $\rightarrow$ Pydantic schema validation $\rightarrow$ data cleaning $\rightarrow$ partitioned Snappy Parquet storage $\rightarrow$ RSS news ingestion $\rightarrow$ syndicate deduplication).
+  - Executed full test suite with 100% pass rate (15 out of 15 tests passed in 5.02s).
+  - Added [`docs/phase_reports/phase_03_completion_report.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/phase_reports/phase_03_completion_report.md) consolidating all Phase 3 deliverables and confirming readiness for Phase 4.
+  - Added step report [`docs/step_reports/phase_03_step_07_pipeline_testing.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_03_step_07_pipeline_testing.md).
+- **Phase 3 — Step 3.6**:
+  - Authored Apache Airflow batch pipeline DAGs in `orchestration/airflow/dags/`:
+    - `daily_market_ingestion_dag.py`: Scheduled daily post-market DAG (19:00 IST / 13:30 UTC weekdays) orchestrating Bhavcopy and MTO delivery fetching $\rightarrow$ quality validation gate $\rightarrow$ PostgreSQL idempotent upsert $\rightarrow$ Snappy Parquet snapshot append.
+    - `intraday_news_ingestion_dag.py`: Recurring 30-minute intraday DAG orchestrating financial RSS and corporate disclosure fetching $\rightarrow$ headline deduplication $\rightarrow$ database persistence.
+  - Configured task retries with exponential backoff (3 retries, 5-minute delay).
+  - Added automated unit test suite `tests/unit/test_airflow_dags.py` (3 passed in 0.04s).
+  - Added step report [`docs/step_reports/phase_03_step_06_airflow_orchestration.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_03_step_06_airflow_orchestration.md).
+- **Phase 3 — Step 3.5**:
+  - Implemented relational and analytical persistence adapters:
+    - `backend/models/market.py`: SQLAlchemy ORM models (`SymbolMasterModel`, `MarketQuoteModel`) mapping to `01_initial_schema.sql` with check constraints and foreign keys.
+    - `backend/repositories/market_repository.py`: Async/sync repository handling idempotent upserts via PostgreSQL `ON CONFLICT (symbol, trade_date) DO UPDATE`.
+    - `processing/pandas/parquet_storage.py`: Columnar storage module supporting partitioned Snappy Parquet writes (`symbol=XYZ/data.parquet`) and pushdown filtered reads.
+  - Added automated unit test suite `tests/unit/test_storage_adapters.py` (2 passed in 1.49s).
+  - Added step report [`docs/step_reports/phase_03_step_05_storage_implementation.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_03_step_05_storage_implementation.md).
+- **Phase 3 — Step 3.4**:
+  - Implemented automated data cleaning and deduplication modules in `processing/pandas/`:
+    - `market_cleaner.py`: Standardizes market quotes into Pandas DataFrames, enforces date/numeric typing, validates price boundaries, filters out corrupted rows, and resolves `(symbol, trade_date)` duplicates.
+    - `news_deduplicator.py`: Normalizes canonical URLs by stripping tracking query parameters (`utm_*`, `ref`) and detects syndicated news reprints using MD5 alphanumeric headline hashing.
+  - Added automated unit test suite `tests/unit/test_data_cleaning.py` (2 passed in 1.05s).
+  - Added step report [`docs/step_reports/phase_03_step_04_data_cleaning.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_03_step_04_data_cleaning.md).
+- **Phase 3 — Step 3.3**:
+  - Implemented financial news and corporate disclosure ingestion clients:
+    - `ingestion/news/rss_news_client.py`: Ingests and normalizes financial RSS feeds (Economic Times, Moneycontrol), stripping HTML tags, unescaping CDATA entities, and standardizing RFC 822 publication timestamps to timezone-aware UTC.
+    - `ingestion/announcements/corporate_disclosure_client.py`: Ingests exchange corporate announcement feeds and SEC EDGAR public submissions API JSON with second-level filing acceptance timestamps (`acceptanceDateTime`).
+  - Added automated unit test suite `tests/unit/test_news_ingestion.py` (3 tests passed in 0.07s).
+  - Added step report [`docs/step_reports/phase_03_step_03_news_ingestion.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_03_step_03_news_ingestion.md).
+- **Phase 3 — Step 3.2**:
+  - Implemented authentic market data ingestion pipeline in `ingestion/market/`:
+    - `nse_bhavcopy_client.py`: Extracts and parses official NSE UDiFF Bhavcopy reports with series `EQ` filtering.
+    - `nse_delivery_client.py`: Ingests and parses official NSE security-wise delivery position reports (`MTO`).
+    - `market_normalizer.py`: Merges OHLCV with delivery data, normalizes types, enforces `MarketQuoteIngestSchema` validation, and routes invalid records to the dead-letter quarantine buffer.
+    - `ingestion/schemas.py`: Pydantic V2 runtime models with boundary assertions.
+  - Added automated unit test suite `tests/unit/test_market_ingestion.py` (4 tests passed in 0.04s).
+  - Added step report [`docs/step_reports/phase_03_step_02_market_ingestion.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_03_step_02_market_ingestion.md).
+- **Phase 3 — Step 3.1**:
+  - Scaffolded the clean modular repository layout matching Master Prompt Section 3.1 (`backend/`, `frontend/`, `ingestion/`, `orchestration/`, `streaming/`, `processing/`, `models/`, `intelligence/`, `genai/`, `monitoring/`, `deployment/`, `tests/`).
+  - Added comprehensive [`.gitignore`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/.gitignore) protecting secrets, caches, Node artifacts, and raw test data.
+  - Added [`.env.example`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/.env.example) configuration template with database, Redis, Groq, and Alpha Vantage placeholders.
+  - Added [`requirements.txt`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/requirements.txt) pinning CPU-friendly, resource-conscious dependencies (FastAPI, SQLAlchemy, asyncpg, pgvector, pandas, pyarrow, scikit-learn, statsmodels, arch, sentence-transformers, groq, tenacity, pytest).
+  - Added step report [`docs/step_reports/phase_03_step_01_repo_structure.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_03_step_01_repo_structure.md).
+- **Phase 2 — Step 2.6 & Phase 2 Milestone Closure**:
+  - Added [`docs/data/data_quality_framework.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/data/data_quality_framework.md) establishing automated quality rules (DQ-MKT-01 to DQ-MKT-09, DQ-NEWS-01 to DQ-NEWS-05), Pydantic runtime validation schemas (`MarketQuoteIngestSchema`, `NewsArticleIngestSchema`), and the dead-letter quarantine protocol (`data/quarantine/invalid_records.jsonl`).
+  - Added [`docs/phase_reports/phase_02_completion_report.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/phase_reports/phase_02_completion_report.md) consolidating all Phase 2 deliverables, authentic source registers, symbol master benchmarks, SQL DDL migrations, and Phase 3 readiness.
+  - Added step report [`docs/step_reports/phase_02_step_06_data_quality.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_02_step_06_data_quality.md).
+- **Phase 2 — Step 2.5**:
+  - Implemented initial PostgreSQL DDL migration script [`scripts/sql/01_initial_schema.sql`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/scripts/sql/01_initial_schema.sql) enabling `uuid-ossp` and `vector` extensions, creating 10 relational tables, foreign key constraints, high/low price validation checks, unique indexes, and an HNSW cosine vector index for 384-dim embeddings.
+  - Created physical directory storage layout (`data/raw/market`, `data/raw/news`, `data/raw/announcements`, `data/features`, `data/models`, `data/quarantine`).
+  - Added [`docs/data/storage_architecture.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/data/storage_architecture.md) detailing hybrid storage strategy, connection pool budgets, and tuning parameters for the 16 GB host.
+  - Added step report [`docs/step_reports/phase_02_step_05_storage_architecture.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_02_step_05_storage_architecture.md).
+- **Phase 2 — Step 2.4**:
+  - Added [`docs/data/data_dictionary.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/data/data_dictionary.md) defining the master data dictionary, ER model, and strict typings across 9 core entities: `symbol_master`, `market_quotes_daily`, `corporate_announcements`, `news_articles`, `market_features_daily`, `anomaly_scores`, `volatility_forecasts`, `risk_alerts`, and `analyst_dispositions`. Specified SQL decimal precision, UTC timestamp standards, foreign key relationships, and range partitioning strategies.
+  - Added step report [`docs/step_reports/phase_02_step_04_data_dictionary.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_02_step_04_data_dictionary.md).
+- **Phase 2 — Step 2.3**:
+  - Constructed the standardized Company & Symbol Master reference dataset for the 15 large-cap benchmark surveillance universe (`data/master/symbol_master.json`, `data/master/symbol_master.csv`, and `data/master/symbol_master.parquet`).
+  - Added [`docs/data/symbol_master_specification.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/data/symbol_master_specification.md) establishing schema fields, ISIN mappings, sectoral classifications, and a rich Entity Alias Index with disambiguation heuristics for NLP Named Entity Recognition.
+  - Added step report [`docs/step_reports/phase_02_step_03_symbol_master.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_02_step_03_symbol_master.md).
+- **Phase 2 — Step 2.2**:
+  - Added [`docs/data/data_availability_report.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/data/data_availability_report.md) documenting empirical ingestion test results across live financial news RSS feeds (Economic Times, Moneycontrol), US SEC EDGAR submissions API, and official NSE bhavcopy/delivery position archives. Formulated field typings (`NUMERIC(12, 2)` for prices, `BIGINT` for volume), UTC ISO 8601 timestamp standards, series `EQ` equity filtering rules, and automated validation gates.
+  - Added step report [`docs/step_reports/phase_02_step_02_data_availability.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_02_step_02_data_availability.md).
+- **Phase 2 — Step 2.1**:
+  - Added [`docs/data/source_register.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/data/source_register.md) establishing the comprehensive Data Source Register across 4 key categories: Indian Equity Market Data (NSE Bhavcopy, UDiFF, Delivery), International Cross-Validation (Alpha Vantage), Corporate Disclosures (NSE/BSE Corporate Filings, US SEC EDGAR API), and Financial News (RSS streams, GDELT). Formulated licensing compliance, rate-limiting budgets, and zero-synthetic data governance protocols.
+  - Added step report [`docs/step_reports/phase_02_step_01_source_register.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_02_step_01_source_register.md).
+- **Phase 1 — Step 1.6 & Phase 1 Milestone Closure**:
+  - Added [`docs/business/success_criteria.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/business/success_criteria.md) detailing measurable success metrics and verification methods across all 8 core pillars (Data Quality, Anomaly Detection, Volatility, News NLP, Risk Scoring, Grounded RAG, System Latency, and Hardware Resource Governance).
+  - Added [`docs/phase_reports/phase_01_completion_report.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/phase_reports/phase_01_completion_report.md) consolidating all Phase 1 deliverables, architectural baselines, step reports, and Phase 2 transition readiness.
+  - Added step report [`docs/step_reports/phase_01_step_06_success_criteria.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_01_step_06_success_criteria.md).
+- **Phase 1 — Step 1.5**:
+  - Added [`docs/architecture/technology_decision_records.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/architecture/technology_decision_records.md) establishing formal Technology Decision Records (TDR-01 to TDR-14) covering React+TypeScript+Tailwind, FastAPI, PostgreSQL 16+, `pgvector` co-location, Redis, Airflow, Redpanda, Pandas+Parquet, Spark Structured Streaming, Scikit-learn/Statsmodels/Arch, MLflow, Prometheus/Grafana/Evidently, decoupled LLM interface with Groq baseline, and Docker Compose profiles + Minikube. Includes a master technology alignment and RAM budget matrix.
+  - Added step report [`docs/step_reports/phase_01_step_05_technology_decisions.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_01_step_05_technology_decisions.md).
+- **Phase 1 — Step 1.4**:
+  - Added [`docs/architecture/system_architecture.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/architecture/system_architecture.md) detailing C4 Level 1 System Context, C4 Level 2 Container Architecture with Docker Compose profiles (`core`, `data`, `streaming`, `monitoring`), C4 Level 3 FastAPI Component Architecture, and Mermaid sequence diagrams for batch ingestion, anomaly/volatility scoring, and grounded RAG investigation flows.
+  - Added step report [`docs/step_reports/phase_01_step_04_system_architecture.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_01_step_04_system_architecture.md).
+- **Phase 1 — Step 1.3**:
+  - Added [`docs/business/product_scope.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/business/product_scope.md) establishing clear boundaries: In-Scope MVP features, Extended/Demonstrative features (Redpanda, Spark, Minikube, SSE), Strictly Out-of-Scope items (trading bots, price forecasting, synthetic stock data, local 7B+ LLMs), technical assumptions, and the project risk register (RSK-01 to RSK-06).
+  - Added step report [`docs/step_reports/phase_01_step_03_product_scope.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_01_step_03_product_scope.md).
+- **Phase 1 — Step 1.2**:
+  - Added [`docs/business/BRD.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/business/BRD.md) covering detailed user personas (Compliance Officer, Risk Manager, Surveillance Analyst), user stories (US-1.1 to US-3.4), functional requirements (FR-1.1 to FR-8.5 across all 8 core modules), non-functional requirements (NFR-1.1 to NFR-5.3), and a comprehensive traceability matrix.
+  - Added step report [`docs/step_reports/phase_01_step_02_brd.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_01_step_02_brd.md).
+- **Phase 1 — Step 1.1**:
+  - Added [`AGENTS.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/AGENTS.md) codifying agent guidelines, architectural baselines, coding conventions, hardware boundaries (16 GB RAM / CPU-only), security governance, and mandatory baby-step approval gates.
+- **Phase 1 — Step 1.1**:
+  - Added [`docs/business/business_problem_statement.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/business/business_problem_statement.md) outlining executive summary, regulatory framework (SEBI/SEC), legacy vs. Sentinel workflow comparison, user personas, and ethical boundaries.
+  - Initialized master tracking ledger [`docs/PROJECT_TRACKER.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/PROJECT_TRACKER.md) covering all 12 phases and their constituent steps.
+  - Initialized [`docs/DECISION_LOG.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/DECISION_LOG.md) with initial decisions ADR-001 (Baby-Step Protocol), ADR-002 (Hardware-Aware Baseline), and ADR-003 (`pgvector` Integration).
+  - Initialized [`docs/KNOWN_ISSUES.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/KNOWN_ISSUES.md) documenting hardware and data licensing constraints.
+  - Added step report [`docs/step_reports/phase_01_step_01_business_problem.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/step_reports/phase_01_step_01_business_problem.md).

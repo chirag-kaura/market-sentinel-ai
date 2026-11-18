@@ -1,0 +1,59 @@
+# ==============================================================================
+# MARKET SENTINEL AI — CORE DEPENDENCIES (CPU-FRIENDLY & RESOURCE-OPTIMIZED)
+# Designed for Python 3.10+ on Windows 11 (16 GB RAM / CPU-only execution)
+# ==============================================================================
+
+# Web & API Framework
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+pydantic>=2.10.0
+pydantic-settings>=2.6.0
+python-multipart>=0.0.17
+sse-starlette>=2.1.0
+
+# Database & ORM
+SQLAlchemy>=2.0.36
+asyncpg>=0.30.0
+psycopg2-binary>=2.9.10
+pgvector>=0.3.6
+alembic>=1.14.0
+
+# In-Memory Cache
+redis>=5.2.0
+
+# Data Engineering & Analytical Processing
+pandas>=2.2.3
+numpy>=1.26.4
+pyarrow>=18.1.0
+polars>=1.14.0
+
+# Machine Learning & Econometric Modeling (CPU Native)
+scikit-learn>=1.5.2
+statsmodels>=0.14.4
+arch>=7.2.0
+
+# NLP, Embeddings & RAG
+sentence-transformers>=3.3.1
+beautifulsoup4>=4.12.3
+lxml>=5.3.0
+
+# LLM Providers & Remote API Abstractions
+groq>=0.13.0
+httpx>=0.28.0
+tenacity>=9.0.0
+
+# Authentication & Security
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+
+# Observability & Monitoring
+prometheus-client>=0.21.0
+mlflow>=2.18.0
+evidently>=0.4.38
+
+# Testing & Code Quality
+pytest>=8.3.4
+pytest-asyncio>=0.24.0
+pytest-cov>=6.0.0
+ruff>=0.8.0
+httpx>=0.28.0

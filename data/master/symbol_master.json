@@ -1,0 +1,261 @@
+[
+  {
+    "symbol": "RELIANCE",
+    "company_name": "Reliance Industries Limited",
+    "isin": "INE002A01018",
+    "sector": "Energy",
+    "industry": "Oil & Gas Refining & Marketing",
+    "exchange": "NSE",
+    "series": "EQ",
+    "listing_date": "1995-11-29",
+    "market_cap_tier": "LARGE_CAP",
+    "is_active": true,
+    "aliases": [
+      "Reliance",
+      "RIL",
+      "Reliance Industries",
+      "Reliance Ind",
+      "Mukesh Ambani firm"
+    ]
+  },
+  {
+    "symbol": "TCS",
+    "company_name": "Tata Consultancy Services Limited",
+    "isin": "INE467B01029",
+    "sector": "Information Technology",
+    "industry": "IT Services & Consulting",
+    "exchange": "NSE",
+    "series": "EQ",
+    "listing_date": "2004-08-25",
+    "market_cap_tier": "LARGE_CAP",
+    "is_active": true,
+    "aliases": [
+      "TCS",
+      "Tata Consultancy",
+      "Tata Consultancy Services",
+      "Tata Sons IT"
+    ]
+  },
+  {
+    "symbol": "HDFCBANK",
+    "company_name": "HDFC Bank Limited",
+    "isin": "INE040A01034",
+    "sector": "Financial Services",
+    "industry": "Private Sector Bank",
+    "exchange": "NSE",
+    "series": "EQ",
+    "listing_date": "1995-11-08",
+    "market_cap_tier": "LARGE_CAP",
+    "is_active": true,
+    "aliases": [
+      "HDFC Bank",
+      "HDFC",
+      "Housing Development Finance Corporation Bank"
+    ]
+  },
+  {
+    "symbol": "INFY",
+    "company_name": "Infosys Limited",
+    "isin": "INE009A01021",
+    "sector": "Information Technology",
+    "industry": "IT Services & Consulting",
+    "exchange": "NSE",
+    "series": "EQ",
+    "listing_date": "1993-02-08",
+    "market_cap_tier": "LARGE_CAP",
+    "is_active": true,
+    "aliases": [
+      "Infosys",
+      "Infosys Tech",
+      "Infy",
+      "Narayana Murthy firm"
+    ]
+  },
+  {
+    "symbol": "ICICIBANK",
+    "company_name": "ICICI Bank Limited",
+    "isin": "INE090A01021",
+    "sector": "Financial Services",
+    "industry": "Private Sector Bank",
+    "exchange": "NSE",
+    "series": "EQ",
+    "listing_date": "1997-09-17",
+    "market_cap_tier": "LARGE_CAP",
+    "is_active": true,
+    "aliases": [
+      "ICICI Bank",
+      "ICICI"
+    ]
+  },
+  {
+    "symbol": "HINDUNILVR",
+    "company_name": "Hindustan Unilever Limited",
+    "isin": "INE030A01027",
+    "sector": "Fast Moving Consumer Goods",
+    "industry": "Diversified FMCG",
+    "exchange": "NSE",
+    "series": "EQ",
+    "listing_date": "1995-07-06",
+    "market_cap_tier": "LARGE_CAP",
+    "is_active": true,
+    "aliases": [
+      "Hindustan Unilever",
+      "HUL",
+      "Unilever India"
+    ]
+  },
+  {
+    "symbol": "ITC",
+    "company_name": "ITC Limited",
+    "isin": "INE154A01025",
+    "sector": "Fast Moving Consumer Goods",
+    "industry": "Cigarettes & Tobacco Products",
+    "exchange": "NSE",
+    "series": "EQ",
+    "listing_date": "1995-07-06",
+    "market_cap_tier": "LARGE_CAP",
+    "is_active": true,
+    "aliases": [
+      "ITC",
+      "Imperial Tobacco Company",
+      "ITC Ltd"
+    ]
+  },
+  {
+    "symbol": "SBIN",
+    "company_name": "State Bank of India",
+    "isin": "INE062A01020",
+    "sector": "Financial Services",
+    "industry": "Public Sector Bank",
+    "exchange": "NSE",
+    "series": "EQ",
+    "listing_date": "1995-03-01",
+    "market_cap_tier": "LARGE_CAP",
+    "is_active": true,
+    "aliases": [
+      "SBI",
+      "State Bank of India",
+      "State Bank"
+    ]
+  },
+  {
+    "symbol": "BHARTIARTL",
+    "company_name": "Bharti Airtel Limited",
+    "isin": "INE397D01024",
+    "sector": "Telecommunication",
+    "industry": "Telecom - Services",
+    "exchange": "NSE",
+    "series": "EQ",
+    "listing_date": "2002-02-15",
+    "market_cap_tier": "LARGE_CAP",
+    "is_active": true,
+    "aliases": [
+      "Airtel",
+      "Bharti Airtel",
+      "Bharti Cellular",
+      "Sunil Mittal firm"
+    ]
+  },
+  {
+    "symbol": "KOTAKBANK",
+    "company_name": "Kotak Mahindra Bank Limited",
+    "isin": "INE237A01028",
+    "sector": "Financial Services",
+    "industry": "Private Sector Bank",
+    "exchange": "NSE",
+    "series": "EQ",
+    "listing_date": "2003-04-08",
+    "market_cap_tier": "LARGE_CAP",
+    "is_active": true,
+    "aliases": [
+      "Kotak Bank",
+      "Kotak Mahindra Bank",
+      "Kotak Mahindra"
+    ]
+  },
+  {
+    "symbol": "LT",
+    "company_name": "Larsen & Toubro Limited",
+    "isin": "INE018A01030",
+    "sector": "Construction",
+    "industry": "Civil Construction",
+    "exchange": "NSE",
+    "series": "EQ",
+    "listing_date": "2004-06-23",
+    "market_cap_tier": "LARGE_CAP",
+    "is_active": true,
+    "aliases": [
+      "Larsen & Toubro",
+      "L&T",
+      "Larsen and Toubro"
+    ]
+  },
+  {
+    "symbol": "AXISBANK",
+    "company_name": "Axis Bank Limited",
+    "isin": "INE238A01034",
+    "sector": "Financial Services",
+    "industry": "Private Sector Bank",
+    "exchange": "NSE",
+    "series": "EQ",
+    "listing_date": "1998-11-16",
+    "market_cap_tier": "LARGE_CAP",
+    "is_active": true,
+    "aliases": [
+      "Axis Bank",
+      "UTI Bank"
+    ]
+  },
+  {
+    "symbol": "TATAMOTORS",
+    "company_name": "Tata Motors Limited",
+    "isin": "INE155A01022",
+    "sector": "Automobile and Auto Components",
+    "industry": "Commercial Vehicles & Passenger Cars",
+    "exchange": "NSE",
+    "series": "EQ",
+    "listing_date": "1998-07-22",
+    "market_cap_tier": "LARGE_CAP",
+    "is_active": true,
+    "aliases": [
+      "Tata Motors",
+      "TaMo",
+      "Tata Commercial Vehicles",
+      "JLR parent"
+    ]
+  },
+  {
+    "symbol": "SUNPHARMA",
+    "company_name": "Sun Pharmaceutical Industries Limited",
+    "isin": "INE044A01036",
+    "sector": "Healthcare",
+    "industry": "Pharmaceuticals",
+    "exchange": "NSE",
+    "series": "EQ",
+    "listing_date": "1995-02-08",
+    "market_cap_tier": "LARGE_CAP",
+    "is_active": true,
+    "aliases": [
+      "Sun Pharma",
+      "Sun Pharmaceutical",
+      "Sun Pharma Industries"
+    ]
+  },
+  {
+    "symbol": "MARUTI",
+    "company_name": "Maruti Suzuki India Limited",
+    "isin": "INE585B01010",
+    "sector": "Automobile and Auto Components",
+    "industry": "Passenger Cars & Utility Vehicles",
+    "exchange": "NSE",
+    "series": "EQ",
+    "listing_date": "2003-07-09",
+    "market_cap_tier": "LARGE_CAP",
+    "is_active": true,
+    "aliases": [
+      "Maruti",
+      "Maruti Suzuki",
+      "Maruti Udyog"
+    ]
+  }
+]

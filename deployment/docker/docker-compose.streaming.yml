@@ -1,0 +1,71 @@
+version: "3.8"
+
+# ==============================================================================
+# MARKET SENTINEL AI — STREAMING SERVICE PROFILE
+# Usage: docker compose -f deployment/docker/docker-compose.streaming.yml --profile streaming up -d
+# Profile: streaming
+# Hardware Limits: Redpanda single-broker capped at 1.5 GB RAM, Console at 256 MB RAM
+# ==============================================================================
+
+networks:
+  sentinel-net:
+    driver: bridge
+
+volumes:
+  redpanda-data:
+    driver: local
+
+services:
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.2.14
+    container_name: sentinel-redpanda
+    profiles:
+      - streaming
+    command:
+      - redpanda
+      - start
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr internal://redpanda:9092,external://localhost:19092
+      - --pandaproxy-addr 0.0.0.0:8082
+      - --advertise-pandaproxy-addr localhost:8082
+      - --schema-registry-addr 0.0.0.0:8081
+      - --rpc-addr 0.0.0.0:33145
+      - --advertise-rpc-addr redpanda:33145
+      - --mode dev-container
+      - --smp 1
+      - --memory 1G
+      - --reserve-memory 0M
+    ports:
+      - "19092:19092"   # External Kafka API for local host clients
+      - "9092:9092"     # Internal Kafka API
+      - "8081:8081"     # Schema Registry
+      - "8082:8082"     # Pandaproxy REST API
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    networks:
+      - sentinel-net
+    mem_limit: 1536m
+    cpus: 1.5
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -i healthy || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  redpanda-console:
+    image: docker.redpanda.com/redpandadata/console:v2.7.2
+    container_name: sentinel-redpanda-console
+    profiles:
+      - streaming
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    ports:
+      - "8085:8080"     # Web GUI for inspecting topic streams
+    environment:
+      KAFKA_BROKERS: "redpanda:9092"
+    networks:
+      - sentinel-net
+    mem_limit: 256m
+    cpus: 0.5

@@ -1,0 +1,32 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname', 'priority', 'ticker']
+  group_wait: 10s
+  group_interval: 1m
+  repeat_interval: 1h
+  receiver: 'surveillance-ops-webhook'
+  routes:
+    - match:
+        priority: CRITICAL
+      receiver: 'surveillance-critical-pager'
+      continue: true
+
+receivers:
+  - name: 'surveillance-ops-webhook'
+    webhook_configs:
+      - url: 'http://backend:8000/api/v1/alerts/webhook'
+        send_resolved: true
+
+  - name: 'surveillance-critical-pager'
+    webhook_configs:
+      - url: 'http://alert-gateway:9000/pagerduty'
+        send_resolved: true
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'ticker']
