@@ -111,11 +111,11 @@ class HistoricalSurveillanceReplayHarness:
                 }
 
             breakdown_dict = {
-                "market_anomaly": risk_result.breakdown.market_anomaly_contribution,
-                "temporal_suspicion": risk_result.breakdown.temporal_suspicion_contribution,
-                "event_relevance": risk_result.breakdown.event_relevance_contribution,
-                "sentiment_divergence": risk_result.breakdown.sentiment_divergence_contribution,
-                "unexplained_penalty": risk_result.breakdown.unexplained_penalty
+                "anomaly_score": risk_result.breakdown.anomaly_score,
+                "vol_surge": risk_result.breakdown.vol_surge,
+                "news_intensity": risk_result.breakdown.news_intensity,
+                "event_severity": risk_result.breakdown.event_severity,
+                "information_gap": risk_result.breakdown.information_gap
             }
 
             alert = SurveillanceAlertSchema(

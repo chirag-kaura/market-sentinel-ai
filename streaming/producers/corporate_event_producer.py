@@ -7,6 +7,7 @@ to ensure per-company sequential event ordering.
 from datetime import datetime, timezone
 import json
 import logging
+import os
 import uuid
 from typing import Dict, List, Optional
 
@@ -18,8 +19,8 @@ class CorporateEventProducer:
 
     TOPIC_NAME = "corporate.events.raw"
 
-    def __init__(self, bootstrap_servers: str = "localhost:19092", mock_mode: bool = False):
-        self.bootstrap_servers = bootstrap_servers
+    def __init__(self, bootstrap_servers: Optional[str] = None, mock_mode: bool = False):
+        self.bootstrap_servers = bootstrap_servers or os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
         self.mock_mode = mock_mode
         self.producer = None
         self.published_messages: List[Dict] = []  # In-memory buffer for mock/testing mode
@@ -35,7 +36,7 @@ class CorporateEventProducer:
                     retries=3,
                 )
             except Exception as e:
-                logger.warning("Could not connect to Kafka broker on %s: %s. Enabling mock mode.", bootstrap_servers, e)
+                logger.warning("Could not connect to Kafka broker on %s: %s. Enabling mock mode.", self.bootstrap_servers, e)
                 self.mock_mode = True
 
     def format_event_message(self, announcement_data: Dict) -> Dict:

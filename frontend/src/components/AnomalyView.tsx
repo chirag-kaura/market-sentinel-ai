@@ -1,10 +1,39 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { AlertSummary } from '../types';
 
 interface AnomalyViewProps {
+  alerts: AlertSummary[];
   onSelectSecurity: (symbol: string) => void;
 }
 
-export const AnomalyView: React.FC<AnomalyViewProps> = ({ onSelectSecurity }) => {
+export const AnomalyView: React.FC<AnomalyViewProps> = ({ alerts, onSelectSecurity }) => {
+  const [methodFilter, setMethodFilter] = useState<'ALL' | 'VOLATILITY' | 'UNEXPLAINED'>('ALL');
+  const [showModelDetails, setShowModelDetails] = useState(false);
+
+  const filteredAlerts = alerts.filter((a) => {
+    if (methodFilter === 'VOLATILITY') {
+      return a.anomaly_category.toUpperCase().includes('VOLATILITY');
+    }
+    if (methodFilter === 'UNEXPLAINED') {
+      return a.anomaly_category.toUpperCase().includes('UNEXPLAINED');
+    }
+    return true;
+  });
+
+  // Deduplicate top securities by highest composite_risk_score
+  const topBySymbolMap = new Map<string, AlertSummary>();
+  for (const a of filteredAlerts) {
+    const existing = topBySymbolMap.get(a.ticker);
+    if (!existing || a.composite_risk_score > existing.composite_risk_score) {
+      topBySymbolMap.set(a.ticker, a);
+    }
+  }
+  const topSecurities = Array.from(topBySymbolMap.values())
+    .sort((a, b) => b.composite_risk_score - a.composite_risk_score)
+    .slice(0, 6);
+
+  const highConfidenceCount = filteredAlerts.filter((a) => a.composite_risk_score >= 43.0).length;
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -21,35 +50,78 @@ export const AnomalyView: React.FC<AnomalyViewProps> = ({ onSelectSecurity }) =>
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <select className="bg-[#0d1724] text-slate-200 border border-[#243247] rounded-lg px-3 py-1.5 text-xs outline-none">
-            <option>All detection methods</option>
-            <option>Rolling z-score</option>
-            <option>Isolation Forest</option>
+          <select
+            value={methodFilter}
+            onChange={(e) => setMethodFilter(e.target.value as 'ALL' | 'VOLATILITY' | 'UNEXPLAINED')}
+            className="bg-[#0d1724] text-slate-200 border border-[#243247] rounded-lg px-3 py-1.5 text-xs outline-none"
+          >
+            <option value="ALL">All detection methods ({alerts.length})</option>
+            <option value="VOLATILITY">Volatility Band Breach (EWMA ±3σ)</option>
+            <option value="UNEXPLAINED">Unexplained Statistical/ML Anomaly</option>
           </select>
-          <button className="border border-[#243247] bg-[#172437] hover:bg-[#1f314a] text-slate-200 px-3 py-1.5 rounded-lg text-xs transition">
-            Model details
+          <button
+            onClick={() => setShowModelDetails((prev) => !prev)}
+            className="border border-[#243247] bg-[#172437] hover:bg-[#1f314a] text-slate-200 px-3 py-1.5 rounded-lg text-xs transition"
+          >
+            {showModelDetails ? 'Hide model details' : 'Model details'}
           </button>
         </div>
       </div>
+
+      {/* Collapsible Model Details Panel */}
+      {showModelDetails && (
+        <div className="bg-[#0d1724] border border-[#2d4563] rounded-xl p-4 text-xs text-slate-300 space-y-2 shadow-lg">
+          <div className="flex justify-between items-center">
+            <span className="font-bold text-[#50d5d0] uppercase tracking-wider text-[11px]">
+              SurveillanceEnsembleEngine v1.0.0 — Architecture & Weights
+            </span>
+            <span className="text-[10px] text-[#91a0b5]">CPU-Optimized · Zero Look-Ahead (.shift(1))</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+            <div className="bg-[#131e2d] p-3 rounded-lg border border-[#243247]">
+              <div className="font-semibold text-slate-100">1. Statistical Baseline (40%)</div>
+              <div className="text-[11px] text-[#91a0b5] mt-1">
+                Rolling 20-day return & volume Z-scores, empirical P95/P99 cutoffs, and delivery divergence.
+              </div>
+            </div>
+            <div className="bg-[#131e2d] p-3 rounded-lg border border-[#243247]">
+              <div className="font-semibold text-slate-100">2. Isolation Forest ML (40%)</div>
+              <div className="text-[11px] text-[#91a0b5] mt-1">
+                100 trees on 7 stationary clues (RobustScaler + sigmoid scoring + dynamic 98th quantile).
+              </div>
+            </div>
+            <div className="bg-[#131e2d] p-3 rounded-lg border border-[#243247]">
+              <div className="font-semibold text-slate-100">3. EWMA Volatility Fence (20%)</div>
+              <div className="text-[11px] text-[#91a0b5] mt-1">
+                RiskMetrics EWMA (λ=0.94) ±3σ dynamic price bands with GARCH(1,1) & GJR-GARCH support.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
         <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
           <div className="text-[11px] text-[#91a0b5]">Signals detected</div>
-          <div className="text-2xl font-bold tracking-tight text-slate-100 my-1">34</div>
-          <div className="text-[10px] text-[#91a0b5]">Active surveillance session</div>
+          <div className="text-2xl font-bold tracking-tight text-slate-100 my-1">
+            {filteredAlerts.length}
+          </div>
+          <div className="text-[10px] text-[#91a0b5]">Persisted in PostgreSQL 16</div>
         </div>
 
         <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
           <div className="text-[11px] text-[#91a0b5]">High-confidence outliers</div>
-          <div className="text-2xl font-bold tracking-tight text-[#ff777d] my-1">09</div>
-          <div className="text-[10px] text-[#91a0b5]">Multiple features corroborate</div>
+          <div className="text-2xl font-bold tracking-tight text-[#ff777d] my-1">
+            {String(highConfidenceCount).padStart(2, '0')}
+          </div>
+          <div className="text-[10px] text-[#91a0b5]">Composite risk score ≥ 43.0</div>
         </div>
 
         <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
           <div className="text-[11px] text-[#91a0b5]">Detection model</div>
-          <div className="text-lg font-bold tracking-tight text-slate-100 my-1">IForest v0.3.1</div>
-          <div className="text-[10px] text-[#91a0b5]">Registered MLflow baseline</div>
+          <div className="text-lg font-bold tracking-tight text-slate-100 my-1">Ensemble v1.0.0</div>
+          <div className="text-[10px] text-[#91a0b5]">Stats (40%) + IForest (40%) + EWMA (20%)</div>
         </div>
       </div>
 
@@ -59,132 +131,64 @@ export const AnomalyView: React.FC<AnomalyViewProps> = ({ onSelectSecurity }) =>
         <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-xs font-semibold text-slate-100">Signal strength by security</h3>
-            <span className="text-[10px] text-[#91a0b5]">ML Anomaly score</span>
+            <span className="text-[10px] text-[#91a0b5]">Top composite risk scores</span>
           </div>
 
           <div className="space-y-3.5 pt-1">
-            <div
-              onClick={() => onSelectSecurity('RELIANCE')}
-              className="grid grid-cols-[100px_1fr_32px] items-center gap-3 text-xs cursor-pointer hover:opacity-80"
-            >
-              <span className="font-bold text-slate-100">RELIANCE</span>
-              <div className="h-2 bg-[#26364a] rounded-full overflow-hidden">
-                <div className="h-full bg-[#ff777d]" style={{ width: '91%' }}></div>
-              </div>
-              <b className="text-right text-slate-200">91</b>
-            </div>
-
-            <div
-              onClick={() => onSelectSecurity('INFY')}
-              className="grid grid-cols-[100px_1fr_32px] items-center gap-3 text-xs cursor-pointer hover:opacity-80"
-            >
-              <span className="font-bold text-slate-100">INFY</span>
-              <div className="h-2 bg-[#26364a] rounded-full overflow-hidden">
-                <div className="h-full bg-[#ff9b7a]" style={{ width: '86%' }}></div>
-              </div>
-              <b className="text-right text-slate-200">86</b>
-            </div>
-
-            <div
-              onClick={() => onSelectSecurity('HDFCBANK')}
-              className="grid grid-cols-[100px_1fr_32px] items-center gap-3 text-xs cursor-pointer hover:opacity-80"
-            >
-              <span className="font-bold text-slate-100">HDFCBANK</span>
-              <div className="h-2 bg-[#26364a] rounded-full overflow-hidden">
-                <div className="h-full bg-[#f4bd62]" style={{ width: '72%' }}></div>
-              </div>
-              <b className="text-right text-slate-200">72</b>
-            </div>
-
-            <div
-              onClick={() => onSelectSecurity('ICICIBANK')}
-              className="grid grid-cols-[100px_1fr_32px] items-center gap-3 text-xs cursor-pointer hover:opacity-80"
-            >
-              <span className="font-bold text-slate-100">ICICIBANK</span>
-              <div className="h-2 bg-[#26364a] rounded-full overflow-hidden">
-                <div className="h-full bg-[#f4bd62]" style={{ width: '64%' }}></div>
-              </div>
-              <b className="text-right text-slate-200">64</b>
-            </div>
-
-            <div
-              onClick={() => onSelectSecurity('LT')}
-              className="grid grid-cols-[100px_1fr_32px] items-center gap-3 text-xs cursor-pointer hover:opacity-80"
-            >
-              <span className="font-bold text-slate-100">LT</span>
-              <div className="h-2 bg-[#26364a] rounded-full overflow-hidden">
-                <div className="h-full bg-[#50d5d0]" style={{ width: '43%' }}></div>
-              </div>
-              <b className="text-right text-slate-200">43</b>
-            </div>
+            {topSecurities.map((item) => {
+              const barColor =
+                item.composite_risk_score >= 45
+                  ? 'bg-[#ff777d]'
+                  : item.composite_risk_score >= 42
+                  ? 'bg-[#f4bd62]'
+                  : 'bg-[#50d5d0]';
+              return (
+                <div
+                  key={item.alert_id}
+                  onClick={() => onSelectSecurity(item.ticker)}
+                  className="grid grid-cols-[100px_1fr_42px] items-center gap-3 text-xs cursor-pointer hover:opacity-80"
+                >
+                  <span className="font-bold text-slate-100">{item.ticker}</span>
+                  <div className="h-2 bg-[#26364a] rounded-full overflow-hidden">
+                    <div
+                      className={`h-full ${barColor}`}
+                      style={{ width: `${Math.min(100, Math.round(item.composite_risk_score))}%` }}
+                    ></div>
+                  </div>
+                  <b className="text-right text-slate-200">{item.composite_risk_score.toFixed(1)}</b>
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        {/* Why was this flagged? */}
-        <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg flex flex-col justify-between">
-          <div>
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="text-xs font-semibold text-slate-100">Why was this flagged?</h3>
-              <span className="text-[10px] text-[#91a0b5]">Example · RELIANCE</span>
-            </div>
-
-            <div className="divide-y divide-[#202d3d] space-y-2">
-              <div className="pt-2 flex justify-between items-center text-xs">
-                <div>
-                  <strong className="text-slate-100">Volume deviation</strong>
-                  <p className="text-[10px] text-[#91a0b5]">
-                    Current volume is materially above its rolling baseline.
-                  </p>
-                </div>
-                <b className="text-[#ff777d] font-bold">+3.4×</b>
-              </div>
-
-              <div className="pt-2 flex justify-between items-center text-xs">
-                <div>
-                  <strong className="text-slate-100">Price movement</strong>
-                  <p className="text-[10px] text-[#91a0b5]">
-                    Absolute return exceeds the selected historical percentile.
-                  </p>
-                </div>
-                <b className="text-[#f4bd62] font-bold">+3.82%</b>
-              </div>
-
-              <div className="pt-2 flex justify-between items-center text-xs">
-                <div>
-                  <strong className="text-slate-100">Model outlier score</strong>
-                  <p className="text-[10px] text-[#91a0b5]">
-                    Feature combination is unusual relative to reference observations.
-                  </p>
-                </div>
-                <b className="text-[#50d5d0] font-bold">0.91</b>
-              </div>
-            </div>
+        {/* Why Flagged / Feature Attribution */}
+        <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-xs font-semibold text-slate-100">Why flagged (Feature attribution)</h3>
+            <span className="text-[10px] text-[#91a0b5]">Latest anomaly drivers</span>
           </div>
 
-          <p className="text-[10px] text-[#91a0b5] mt-4 border-t border-[#202d3d] pt-3">
-            An anomaly score is a screening signal, not a probability of misconduct or a finding of wrongdoing.
-          </p>
-        </div>
-      </div>
-
-      {/* Detection methodology */}
-      <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
-        <div className="flex justify-between items-center mb-2">
-          <h3 className="text-xs font-semibold text-slate-100">Detection methodology</h3>
-          <span className="text-[10px] text-[#91a0b5]">Model transparency</span>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-          <div className="border border-[#243247] rounded-lg p-3 bg-[#0d1724]">
-            <b className="text-xs text-slate-100 block">Statistical baseline</b>
-            <p className="text-[11px] text-[#91a0b5] mt-1 leading-relaxed">
-              Rolling z-scores, robust percentiles and volume ratios compare current observations against a historical reference window (20–60 sessions).
-            </p>
-          </div>
-          <div className="border border-[#243247] rounded-lg p-3 bg-[#0d1724]">
-            <b className="text-xs text-slate-100 block">Unsupervised machine learning</b>
-            <p className="text-[11px] text-[#91a0b5] mt-1 leading-relaxed">
-              Isolation Forest identifies multivariate observations that differ from the learned feature distribution. No labelled misconduct outcome is assumed.
-            </p>
+          <div className="space-y-2.5">
+            {topSecurities.slice(0, 4).map((item) => (
+              <div
+                key={item.alert_id}
+                onClick={() => onSelectSecurity(item.ticker)}
+                className="bg-[#0d1724] border border-[#243247] hover:border-[#50d5d0] rounded-lg p-3 cursor-pointer transition"
+              >
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-bold text-slate-100">
+                    {item.ticker} · <span className="text-[#50d5d0]">{item.anomaly_category}</span>
+                  </span>
+                  <span className="text-[10px] text-[#91a0b5]">
+                    {new Date(item.event_timestamp).toLocaleDateString()}
+                  </span>
+                </div>
+                <p className="text-[11px] text-[#91a0b5] mt-1 leading-relaxed">
+                  {item.summary_explanation}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       </div>

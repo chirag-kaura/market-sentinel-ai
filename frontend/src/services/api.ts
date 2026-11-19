@@ -1,27 +1,66 @@
 /**
  * REST and SSE API Client for Surveillance Dashboard.
- * Phase 10 — Step 10.6: Typed HTTP requests with fallback mock dataset for offline development.
+ * Phase 10 — Step 10.6: Typed HTTP requests with database persistence and JWT authentication.
  */
 
 import {
   AlertSummary,
   AlertDetail,
-  InvestigationCase,
-  SymbolInfo,
+  PriorityLevel,
   MarketWatchQuote,
   NewsAnnouncementItem,
+  AuditLogEntry,
 } from '../types';
 
-const BASE_URL = 'http://localhost:8000/api/v1';
+const BASE_URL =
+  (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_BASE_URL ||
+  'http://localhost:8000/api/v1';
 
 export class SurveillanceApiClient {
   private token: string | null = null;
+  public isUsingMockFallback: boolean = false;
+  private onConnectionStateChange?: (connected: boolean) => void;
 
   setAuthToken(token: string) {
     this.token = token;
   }
 
-  private getHeaders(): HeadersInit {
+  getAuthToken(): string | null {
+    return this.token;
+  }
+
+  setConnectionCallback(cb: (connected: boolean) => void) {
+    this.onConnectionStateChange = cb;
+  }
+
+  private notifyConnection(connected: boolean) {
+    this.isUsingMockFallback = !connected;
+    if (this.onConnectionStateChange) {
+      this.onConnectionStateChange(connected);
+    }
+  }
+
+  async ensureAuthenticated(): Promise<string> {
+    if (this.token) return this.token;
+    try {
+      const res = await fetch(`${BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'analyst1', password: 'analyst_password123' }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        this.token = data.access_token;
+        return this.token || '';
+      }
+    } catch (err) {
+      console.warn('Backend authentication offline:', err);
+    }
+    return '';
+  }
+
+  private async getHeaders(): Promise<HeadersInit> {
+    await this.ensureAuthenticated();
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
@@ -38,12 +77,15 @@ export class SurveillanceApiClient {
     if (minScore > 0) params.append('min_score', minScore.toString());
 
     try {
-      const res = await fetch(`${BASE_URL}/alerts?${params.toString()}`, {
-        headers: this.getHeaders(),
-      });
+      const headers = await this.getHeaders();
+      const res = await fetch(`${BASE_URL}/alerts?${params.toString()}`, { headers });
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-      return await res.json();
-    } catch {
+      const data = await res.json();
+      this.notifyConnection(true);
+      return data;
+    } catch (err) {
+      this.notifyConnection(false);
+      console.warn('Backend unavailable, fallback preview active:', err);
       return [
         {
           alert_id: 'MS-26018',
@@ -78,12 +120,15 @@ export class SurveillanceApiClient {
 
   async getWatchlist(): Promise<MarketWatchQuote[]> {
     try {
-      const res = await fetch(`${BASE_URL}/market/watchlist`, {
-        headers: this.getHeaders(),
-      });
+      const headers = await this.getHeaders();
+      const res = await fetch(`${BASE_URL}/market/watchlist`, { headers });
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-      return await res.json();
-    } catch {
+      const data = await res.json();
+      this.notifyConnection(true);
+      return data;
+    } catch (err) {
+      this.notifyConnection(false);
+      console.warn('Backend unavailable, fallback preview active:', err);
       return [
         {
           symbol: 'RELIANCE',
@@ -118,51 +163,21 @@ export class SurveillanceApiClient {
           risk_score: 72.0,
           priority: 'MEDIUM',
         },
-        {
-          symbol: 'ICICIBANK',
-          company_name: 'ICICI Bank Limited',
-          last_price: 1208.80,
-          change_pct: -0.86,
-          volume_ratio: 2.1,
-          volatility_regime: 'Moderate',
-          signal: 'Volume',
-          risk_score: 64.0,
-          priority: 'MEDIUM',
-        },
-        {
-          symbol: 'TCS',
-          company_name: 'Tata Consultancy Services Limited',
-          last_price: 3214.00,
-          change_pct: 0.42,
-          volume_ratio: 0.9,
-          volatility_regime: 'Normal',
-          signal: 'None',
-          risk_score: 18.0,
-          priority: 'LOW',
-        },
-        {
-          symbol: 'BHARTIARTL',
-          company_name: 'Bharti Airtel Limited',
-          last_price: 1734.40,
-          change_pct: 1.12,
-          volume_ratio: 1.1,
-          volatility_regime: 'Normal',
-          signal: 'None',
-          risk_score: 21.0,
-          priority: 'LOW',
-        },
       ];
     }
   }
 
   async getNews(): Promise<NewsAnnouncementItem[]> {
     try {
-      const res = await fetch(`${BASE_URL}/news`, {
-        headers: this.getHeaders(),
-      });
+      const headers = await this.getHeaders();
+      const res = await fetch(`${BASE_URL}/news`, { headers });
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-      return await res.json();
-    } catch {
+      const data = await res.json();
+      this.notifyConnection(true);
+      return data;
+    } catch (err) {
+      this.notifyConnection(false);
+      console.warn('Backend news unavailable, fallback preview active:', err);
       return [
         {
           id: 'NEWS-2026-001',
@@ -188,30 +203,21 @@ export class SurveillanceApiClient {
           linked_signal: 'Price + volume',
           headline: 'Consortium negotiation updates for domestic energy retail venture.',
         },
-        {
-          id: 'NEWS-2026-003',
-          published_time: '11:20',
-          ticker: 'HDFCBANK',
-          company_name: 'HDFC Bank Limited',
-          event_category: 'Sector / macro',
-          sentiment: 'Negative',
-          novelty: 'Low',
-          source_type: 'News source',
-          linked_signal: 'Volatility',
-          headline: 'RBI monetary committee note on unsecured consumer loan provisions.',
-        },
       ];
     }
   }
 
   async getAlertDetail(alertId: string): Promise<AlertDetail> {
     try {
-      const res = await fetch(`${BASE_URL}/alerts/${alertId}`, {
-        headers: this.getHeaders(),
-      });
+      const headers = await this.getHeaders();
+      const res = await fetch(`${BASE_URL}/alerts/${alertId}`, { headers });
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-      return await res.json();
-    } catch {
+      const data = await res.json();
+      this.notifyConnection(true);
+      return data;
+    } catch (err) {
+      this.notifyConnection(false);
+      console.warn('Backend alert detail unavailable, fallback preview active:', err);
       return {
         alert_id: alertId,
         ticker: 'RELIANCE',
@@ -230,6 +236,81 @@ export class SurveillanceApiClient {
     }
   }
 
+  async getInvestigationCases(): Promise<any[]> {
+    try {
+      const headers = await this.getHeaders();
+      const res = await fetch(`${BASE_URL}/investigations`, { headers });
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      return res.json();
+    } catch (err) {
+      console.error('Failed to load investigation cases:', err);
+      return [];
+    }
+  }
+
+  async addInvestigationNotes(caseId: string, notes: string): Promise<any> {
+    const headers = await this.getHeaders();
+    const res = await fetch(`${BASE_URL}/investigations/${caseId}/notes`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ notes }),
+    });
+    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+    return res.json();
+  }
+
+  async updateInvestigationStatus(caseId: string, status: string, rationale?: string): Promise<any> {
+    const headers = await this.getHeaders();
+    const res = await fetch(`${BASE_URL}/investigations/${caseId}/status`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ status, rationale }),
+    });
+    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+    return res.json();
+  }
+
+  async escalateCaseToSAR(caseId: string, rationale: string): Promise<any> {
+    const headers = await this.getHeaders();
+    const res = await fetch(`${BASE_URL}/investigations/${caseId}/escalate`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ rationale }),
+    });
+    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+    return res.json();
+  }
+
+  async dismissCase(caseId: string, rationale: string): Promise<any> {
+    const headers = await this.getHeaders();
+    const res = await fetch(`${BASE_URL}/investigations/${caseId}/dismiss`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ rationale }),
+    });
+    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+    return res.json();
+  }
+
+  async getAuditTrail(): Promise<AuditLogEntry[]> {
+    try {
+      const headers = await this.getHeaders();
+      const res = await fetch(`${BASE_URL}/investigations/audit/dispositions`, { headers });
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      const data = await res.json();
+      return data.map((item: any) => ({
+        timestamp: new Date(item.reviewed_at_utc).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        case_id: item.case_id,
+        action: item.action,
+        analyst: item.analyst_username,
+        rationale: item.disposition_notes,
+      }));
+    } catch (err) {
+      console.warn('Failed to load audit trail:', err);
+      return [];
+    }
+  }
+
   subscribeToAlertStream(
     onAlert: (alert: {
       event_id: string;
@@ -241,23 +322,30 @@ export class SurveillanceApiClient {
       summary_explanation?: string;
     }) => void
   ): () => void {
-    const eventSource = new EventSource(`${BASE_URL}/stream/alerts`);
+    let eventSource: EventSource | null = null;
 
-    eventSource.addEventListener('alert', (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        onAlert(data);
-      } catch (err) {
-        console.error('Error parsing SSE stream message:', err);
-      }
+    this.ensureAuthenticated().then((token) => {
+      const url = token ? `${BASE_URL}/stream/alerts?token=${encodeURIComponent(token)}` : `${BASE_URL}/stream/alerts`;
+      eventSource = new EventSource(url);
+
+      eventSource.addEventListener('alert', (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          onAlert(data);
+        } catch (err) {
+          console.error('Error parsing SSE stream message:', err);
+        }
+      });
+
+      eventSource.onerror = () => {
+        // Automatic reconnection handled by browser EventSource
+      };
     });
 
-    eventSource.onerror = () => {
-      // Browser EventSource automatically retries
-    };
-
     return () => {
-      eventSource.close();
+      if (eventSource) {
+        eventSource.close();
+      }
     };
   }
 }

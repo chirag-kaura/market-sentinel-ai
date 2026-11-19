@@ -30,7 +30,7 @@ class SurveillanceAlertSchema(BaseModel):
     alert_timestamp: datetime = Field(..., description="Timestamp of the triggering event")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     priority_tier: str = Field(..., description="AlertPriorityTier: INFORMATIONAL, LOW, MEDIUM, HIGH, CRITICAL")
-    composite_risk_score: float = Field(..., ge=0.0, le=1.0)
+    composite_risk_score: float = Field(..., ge=0.0, le=100.0)
     confidence: float = Field(..., ge=0.0, le=1.0)
     primary_risk_driver: str
     temporal_relationship: str

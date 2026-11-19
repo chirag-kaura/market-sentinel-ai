@@ -5,8 +5,9 @@ Connects to the Redpanda Kafka broker and provisions required topics
 with designated partition counts and retention policies.
 """
 import logging
+import os
 import sys
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +42,9 @@ TOPIC_CONFIGS = [
 ]
 
 
-def provision_topics(broker_address: str = "localhost:19092") -> Dict[str, str]:
+def provision_topics(broker_address: Optional[str] = None) -> Dict[str, str]:
     """Create streaming topics using Kafka AdminClient if broker is available."""
+    broker_address = broker_address or os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
     results = {}
     try:
         from kafka.admin import KafkaAdminClient, NewTopic
@@ -87,6 +89,6 @@ def provision_topics(broker_address: str = "localhost:19092") -> Dict[str, str]:
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    broker = sys.argv[1] if len(sys.argv) > 1 else "localhost:19092"
+    broker = sys.argv[1] if len(sys.argv) > 1 else None
     res = provision_topics(broker)
     print("Topic Provisioning Results:", res)

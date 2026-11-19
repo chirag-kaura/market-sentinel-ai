@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Market Sentinel AI — Drift Dashboard (RELIANCE)</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    body { background:#0a0f18; color:#e8eef7; font-family:system-ui,sans-serif; margin:0; padding:24px; }
+    .wrap { max-width:1100px; margin:0 auto; }
+    .card { background:#131e2d; border:1px solid #243247; border-radius:12px; padding:18px; margin-bottom:18px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(460px,1fr)); gap:18px; }
+    .badge { padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700; }
+    .crit { background:#49262d; color:#ff9ca1; }
+    .ok { background:#173b2f; color:#65d6a4; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" style="display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="color:#50d5d0;font-size:11px;font-weight:700;letter-spacing:1px;">EVIDENTLY / KS + PSI DRIFT MONITOR</div>
+        <h1 style="margin:4px 0 0;font-size:22px;">RELIANCE Feature Drift Report (PostgreSQL 16)</h1>
+        <div style="color:#91a0b5;font-size:12px;margin-top:4px;">Reference: 343 days (70%) vs Current: 148 days (30%)</div>
+      </div>
+      <span class="badge crit">
+        DRIFT DETECTED
+      </span>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0;font-size:14px;">Population Stability Index (PSI) by Feature</h3>
+      <canvas id="psiChart" height="90"></canvas>
+    </div>
+
+    <div class="grid">
+      <div class="card"><h3 style="margin-top:0;font-size:14px;">log_return_1d (PSI: 0.080 · NONE)</h3><canvas id="hist_log_return_1d" height="150"></canvas></div><div class="card"><h3 style="margin-top:0;font-size:14px;">volatility_20d (PSI: 1.697 · CRITICAL)</h3><canvas id="hist_volatility_20d" height="150"></canvas></div><div class="card"><h3 style="margin-top:0;font-size:14px;">volume_zscore_20d (PSI: 0.054 · NONE)</h3><canvas id="hist_volume_zscore_20d" height="150"></canvas></div><div class="card"><h3 style="margin-top:0;font-size:14px;">delivery_zscore_20d (PSI: 0.170 · MODERATE)</h3><canvas id="hist_delivery_zscore_20d" height="150"></canvas></div>
+    </div>
+  </div>
+
+  <script>
+    new Chart(document.getElementById('psiChart'), {
+      type: 'bar',
+      data: {
+        labels: ["log_return_1d", "volatility_20d", "volume_zscore_20d", "delivery_zscore_20d"],
+        datasets: [{ label: 'PSI Score (≥0.25 Critical, ≥0.10 Moderate)', data: [0.0805, 1.6973, 0.0538, 0.1702], backgroundColor: ["#65d6a4", "#ff777d", "#65d6a4", "#f4bd62"] }]
+      },
+      options: { plugins: { legend: { labels: { color: '#91a0b5' } } }, scales: { x: { ticks: { color: '#91a0b5' } }, y: { ticks: { color: '#91a0b5' } } } }
+    });
+
+    const histData = {"log_return_1d": {"labels": ["-0.033", "-0.029", "-0.025", "-0.020", "-0.016", "-0.012", "-0.008", "-0.004", "0.000", "0.005", "0.009", "0.013", "0.017", "0.021", "0.026", "0.030"], "ref": [0.87, 1.17, 2.62, 1.75, 6.71, 11.66, 10.79, 14.29, 17.2, 11.37, 6.41, 4.66, 4.37, 1.17, 1.46, 1.46], "cur": [0.68, 1.35, 4.05, 3.38, 8.11, 10.81, 11.49, 11.49, 19.59, 10.14, 4.05, 6.08, 0.0, 3.38, 2.7, 0.68]}, "volatility_20d": {"labels": ["0.099", "0.120", "0.141", "0.163", "0.184", "0.205", "0.226", "0.247", "0.269", "0.290", "0.311", "0.332", "0.353", "0.375", "0.396", "0.417"], "ref": [5.54, 9.33, 7.0, 13.7, 14.58, 16.03, 17.2, 3.79, 5.54, 3.21, 2.62, 0.0, 0.0, 0.0, 0.0, 0.0], "cur": [0.0, 0.68, 4.05, 12.16, 34.46, 9.46, 4.73, 14.86, 2.7, 4.05, 3.38, 0.68, 0.0, 0.0, 0.0, 5.41]}, "volume_zscore_20d": {"labels": ["-2.134", "-1.711", "-1.288", "-0.865", "-0.442", "-0.018", "0.405", "0.828", "1.251", "1.674", "2.097", "2.521", "2.944", "3.367", "3.790", "4.213"], "ref": [0.29, 4.08, 12.83, 19.53, 18.37, 16.03, 8.16, 8.45, 2.92, 3.5, 1.17, 0.87, 0.58, 0.29, 0.87, 0.29], "cur": [1.35, 6.08, 8.78, 22.3, 21.62, 16.89, 7.43, 6.08, 2.03, 2.03, 0.0, 0.68, 0.68, 1.35, 0.0, 0.0]}, "delivery_zscore_20d": {"labels": ["-0.001", "-0.001", "-0.001", "-0.001", "-0.001", "-0.001", "-0.000", "-0.000", "-0.000", "-0.000", "-0.000", "0.000", "0.000", "0.000", "0.000", "0.001"], "ref": [0.87, 0.29, 1.75, 1.46, 2.62, 2.62, 4.96, 5.25, 7.58, 10.2, 12.54, 12.83, 9.33, 11.37, 11.66, 2.33], "cur": [0.68, 0.68, 0.0, 1.35, 1.35, 2.03, 6.76, 6.08, 6.76, 9.46, 12.84, 15.54, 15.54, 14.86, 5.41, 0.0]}};
+    Object.entries(histData).forEach(([col, d]) => {
+      new Chart(document.getElementById('hist_' + col), {
+        type: 'bar',
+        data: {
+          labels: d.labels,
+          datasets: [
+            { label: 'Reference (Past 70%) %', data: d.ref, backgroundColor: 'rgba(80, 213, 208, 0.55)' },
+            { label: 'Current (Recent 30%) %', data: d.cur, backgroundColor: 'rgba(255, 119, 125, 0.55)' }
+          ]
+        },
+        options: { plugins: { legend: { labels: { color: '#91a0b5' } } }, scales: { x: { ticks: { color: '#91a0b5' } }, y: { ticks: { color: '#91a0b5' } } } }
+      });
+    });
+  </script>
+</body>
+</html>

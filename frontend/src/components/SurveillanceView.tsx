@@ -12,13 +12,23 @@ export const SurveillanceView: React.FC<SurveillanceViewProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [signalFilter, setSignalFilter] = useState('');
+  const [universeFilter, setUniverseFilter] = useState<'ALL' | 'HIGH_RISK'>('ALL');
+  const [sessionFilter, setSessionFilter] = useState<'TODAY' | 'RECENT'>('TODAY');
+
+  // Dynamic KPIs computed from live PostgreSQL 16 quotes
+  const priceOutliersCount = quotes.filter((q) => Math.abs(q.change_pct) >= 2.0).length;
+  const volumeOutliersCount = quotes.filter((q) => q.volume_ratio >= 2.0).length;
+  const combinedSignalsCount = quotes.filter(
+    (q) => q.risk_score >= 40.0 || (Math.abs(q.change_pct) >= 1.5 && q.volume_ratio >= 1.5)
+  ).length;
 
   const filteredQuotes = quotes.filter((q) => {
     const matchSearch =
       q.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
       q.company_name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchSignal = signalFilter ? q.signal.toLowerCase().includes(signalFilter.toLowerCase()) : true;
-    return matchSearch && matchSignal;
+    const matchUniverse = universeFilter === 'HIGH_RISK' ? q.risk_score >= 40.0 : true;
+    return matchSearch && matchSignal && matchUniverse;
   });
 
   return (
@@ -37,13 +47,21 @@ export const SurveillanceView: React.FC<SurveillanceViewProps> = ({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <select className="bg-[#0d1724] text-slate-200 border border-[#243247] rounded-lg px-3 py-1.5 text-xs outline-none">
-            <option>NSE cash market</option>
-            <option>Watchlist</option>
+          <select
+            value={universeFilter}
+            onChange={(e) => setUniverseFilter(e.target.value as 'ALL' | 'HIGH_RISK')}
+            className="bg-[#0d1724] text-slate-200 border border-[#243247] rounded-lg px-3 py-1.5 text-xs outline-none"
+          >
+            <option value="ALL">NSE cash market (Top {quotes.length})</option>
+            <option value="HIGH_RISK">Watchlist (Risk ≥ 40)</option>
           </select>
-          <select className="bg-[#0d1724] text-slate-200 border border-[#243247] rounded-lg px-3 py-1.5 text-xs outline-none">
-            <option>Today</option>
-            <option>Last 5 sessions</option>
+          <select
+            value={sessionFilter}
+            onChange={(e) => setSessionFilter(e.target.value as 'TODAY' | 'RECENT')}
+            className="bg-[#0d1724] text-slate-200 border border-[#243247] rounded-lg px-3 py-1.5 text-xs outline-none"
+          >
+            <option value="TODAY">Latest session</option>
+            <option value="RECENT">Last 5 sessions</option>
           </select>
         </div>
       </div>
@@ -53,27 +71,33 @@ export const SurveillanceView: React.FC<SurveillanceViewProps> = ({
         <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
           <div className="text-[11px] text-[#91a0b5]">Universe coverage</div>
           <div className="text-2xl font-bold tracking-tight text-slate-100 my-1">
-            248 <small className="text-xs font-normal text-[#91a0b5]">symbols</small>
+            {quotes.length} <small className="text-xs font-normal text-[#91a0b5]">symbols</small>
           </div>
-          <div className="text-[10px] text-[#91a0b5]">Active exchange universe</div>
+          <div className="text-[10px] text-[#91a0b5]">Top NSE PostgreSQL 16 universe</div>
         </div>
 
         <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
-          <div className="text-[11px] text-[#91a0b5]">Price outliers</div>
-          <div className="text-2xl font-bold tracking-tight text-[#f4bd62] my-1">14</div>
-          <div className="text-[10px] text-[#91a0b5]">Outside expected range</div>
+          <div className="text-[11px] text-[#91a0b5]">Price outliers (|Δ| ≥ 2%)</div>
+          <div className="text-2xl font-bold tracking-tight text-[#f4bd62] my-1">
+            {String(priceOutliersCount).padStart(2, '0')}
+          </div>
+          <div className="text-[10px] text-[#91a0b5]">Outside expected daily range</div>
         </div>
 
         <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
-          <div className="text-[11px] text-[#91a0b5]">Volume outliers</div>
-          <div className="text-2xl font-bold tracking-tight text-slate-100 my-1">11</div>
-          <div className="text-[10px] text-[#91a0b5]">Relative to historical baseline</div>
+          <div className="text-[11px] text-[#91a0b5]">Volume outliers (≥ 2.0x)</div>
+          <div className="text-2xl font-bold tracking-tight text-slate-100 my-1">
+            {String(volumeOutliersCount).padStart(2, '0')}
+          </div>
+          <div className="text-[10px] text-[#91a0b5]">Relative to 20d baseline</div>
         </div>
 
         <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
           <div className="text-[11px] text-[#91a0b5]">Combined signals</div>
-          <div className="text-2xl font-bold tracking-tight text-[#ff777d] my-1">09</div>
-          <div className="text-[10px] text-[#91a0b5]">Queued for alert evaluation</div>
+          <div className="text-2xl font-bold tracking-tight text-[#ff777d] my-1">
+            {String(combinedSignalsCount).padStart(2, '0')}
+          </div>
+          <div className="text-[10px] text-[#91a0b5]">Risk ≥ 40 or Price + Vol</div>
         </div>
       </div>
 

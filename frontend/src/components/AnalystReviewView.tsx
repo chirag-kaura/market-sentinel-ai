@@ -1,21 +1,37 @@
-import React, { useState } from 'react';
-import { AuditLogEntry } from '../types';
+import React, { useState, useEffect } from 'react';
+import { AlertSummary, AuditLogEntry } from '../types';
 
 interface AnalystReviewViewProps {
+  alerts: AlertSummary[];
   auditLogs: AuditLogEntry[];
   onAddAuditLog: (entry: AuditLogEntry) => void;
   onSelectCase: (caseId: string) => void;
 }
 
 export const AnalystReviewView: React.FC<AnalystReviewViewProps> = ({
+  alerts,
   auditLogs,
   onAddAuditLog,
   onSelectCase,
 }) => {
-  const [selectedCase, setSelectedCase] = useState('MS-26018 · RELIANCE');
+  const [selectedCase, setSelectedCase] = useState(
+    alerts.length > 0 ? `${alerts[0].alert_id} · ${alerts[0].ticker}` : ''
+  );
   const [disposition, setDisposition] = useState('Requires further investigation');
   const [rationale, setRationale] = useState('');
   const [feedbackMsg, setFeedbackMsg] = useState('');
+  const [showGuidelines, setShowGuidelines] = useState(false);
+
+  useEffect(() => {
+    if (alerts.length > 0 && !selectedCase) {
+      setSelectedCase(`${alerts[0].alert_id} · ${alerts[0].ticker}`);
+    }
+  }, [alerts, selectedCase]);
+
+  const escalatedCount = auditLogs.filter((l) =>
+    l.action.toLowerCase().includes('escalat')
+  ).length;
+  const pendingCount = Math.max(0, alerts.length - auditLogs.length);
 
   const handleSaveReview = () => {
     if (!rationale.trim()) {
@@ -53,32 +69,58 @@ export const AnalystReviewView: React.FC<AnalystReviewViewProps> = ({
             Capture analyst decisions, rationale and escalation outcomes for a defensible review trail.
           </p>
         </div>
-        <button className="border border-[#243247] bg-[#172437] hover:bg-[#1f314a] text-slate-200 px-3 py-1.5 rounded-lg text-xs transition">
-          Review guidelines
+        <button
+          onClick={() => setShowGuidelines((prev) => !prev)}
+          className="border border-[#243247] bg-[#172437] hover:bg-[#1f314a] text-slate-200 px-3 py-1.5 rounded-lg text-xs transition"
+        >
+          {showGuidelines ? 'Hide guidelines' : 'Review guidelines'}
         </button>
       </div>
+
+      {showGuidelines && (
+        <div className="bg-[#0d1724] border border-[#2d4563] rounded-xl p-4 text-xs text-slate-300 space-y-1.5 shadow-lg">
+          <div className="font-bold text-[#50d5d0] uppercase tracking-wider text-[11px]">
+            Institutional Compliance Review Protocol (BRD FR-7.3)
+          </div>
+          <p className="text-[11px] text-[#91a0b5]">
+            1. <strong>Zero Accusation Boundary</strong>: Statistical anomalies are screening signals, never legal proof of misconduct.
+          </p>
+          <p className="text-[11px] text-[#91a0b5]">
+            2. <strong>Mandatory Rationale</strong>: Every disposition requires empirical evidence &amp; a written rationale before logging to PostgreSQL <code>analyst_dispositions</code>.
+          </p>
+          <p className="text-[11px] text-[#91a0b5]">
+            3. <strong>Escalation Authority</strong>: Formal SAR escalations &amp; dismissals require <code>COMPLIANCE_OFFICER</code> or <code>ADMIN</code> role.
+          </p>
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
           <div className="text-[11px] text-[#91a0b5]">Pending review</div>
-          <div className="text-2xl font-bold tracking-tight text-[#f4bd62] my-1">08</div>
+          <div className="text-2xl font-bold tracking-tight text-[#f4bd62] my-1">
+            {String(pendingCount).padStart(2, '0')}
+          </div>
         </div>
 
         <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
-          <div className="text-[11px] text-[#91a0b5]">Reviewed today</div>
-          <div className="text-2xl font-bold tracking-tight text-slate-100 my-1">21</div>
+          <div className="text-[11px] text-[#91a0b5]">Dispositions logged</div>
+          <div className="text-2xl font-bold tracking-tight text-slate-100 my-1">
+            {String(auditLogs.length).padStart(2, '0')}
+          </div>
         </div>
 
         <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
           <div className="text-[11px] text-[#91a0b5]">Escalated</div>
-          <div className="text-2xl font-bold tracking-tight text-[#ff777d] my-1">03</div>
+          <div className="text-2xl font-bold tracking-tight text-[#ff777d] my-1">
+            {String(escalatedCount).padStart(2, '0')}
+          </div>
         </div>
 
         <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
-          <div className="text-[11px] text-[#91a0b5]">Median review time</div>
+          <div className="text-[11px] text-[#91a0b5]">Active alerts</div>
           <div className="text-2xl font-bold tracking-tight text-slate-100 my-1">
-            18 <small className="text-xs font-normal text-[#91a0b5]">min</small>
+            {alerts.length}
           </div>
         </div>
       </div>

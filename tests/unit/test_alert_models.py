@@ -50,7 +50,7 @@ def test_pydantic_alert_schema_invalid_score():
         "company_name": "Infosys",
         "alert_timestamp": datetime.now(timezone.utc),
         "priority_tier": "HIGH",
-        "composite_risk_score": 1.5,  # Invalid: score > 1.0
+        "composite_risk_score": 105.0,  # Invalid: score > 100.0 (FR-5.2 0-100 scale)
         "confidence": 0.80,
         "primary_risk_driver": "Shock",
         "temporal_relationship": "COINCIDENT_REACTION",

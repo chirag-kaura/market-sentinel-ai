@@ -64,14 +64,15 @@ class AlertPrioritizer:
     def prioritize(self, risk_result: CompositeRiskScoreResult) -> AlertPrioritizationResult:
         """Assigns an alert priority tier, review SLA, and action recommendation."""
         score = risk_result.composite_risk_score
+        norm_score = score / 100.0 if score > 1.0 else score
 
-        if score >= self.TIER_BOUNDARIES[AlertPriorityTier.CRITICAL]:
+        if norm_score >= self.TIER_BOUNDARIES[AlertPriorityTier.CRITICAL]:
             tier = AlertPriorityTier.CRITICAL
-        elif score >= self.TIER_BOUNDARIES[AlertPriorityTier.HIGH]:
+        elif norm_score >= self.TIER_BOUNDARIES[AlertPriorityTier.HIGH]:
             tier = AlertPriorityTier.HIGH
-        elif score >= self.TIER_BOUNDARIES[AlertPriorityTier.MEDIUM]:
+        elif norm_score >= self.TIER_BOUNDARIES[AlertPriorityTier.MEDIUM]:
             tier = AlertPriorityTier.MEDIUM
-        elif score >= self.TIER_BOUNDARIES[AlertPriorityTier.LOW]:
+        elif norm_score >= self.TIER_BOUNDARIES[AlertPriorityTier.LOW]:
             tier = AlertPriorityTier.LOW
         else:
             tier = AlertPriorityTier.INFORMATIONAL

@@ -3,18 +3,34 @@ import { AlertSummary } from '../types';
 
 interface OverviewViewProps {
   alerts: AlertSummary[];
+  watchlistCount?: number;
+  openInvestigationsCount?: number;
   onNavigateToAlerts: () => void;
   onSelectAlert: (alertId: string) => void;
 }
 
 export const OverviewView: React.FC<OverviewViewProps> = ({
   alerts,
+  watchlistCount = 15,
+  openInvestigationsCount = 0,
   onNavigateToAlerts,
   onSelectAlert,
 }) => {
   const highPriorityCount = alerts.filter(
     (a) => a.priority_level === 'CRITICAL' || a.priority_level === 'HIGH'
   ).length;
+  const mediumPriorityCount = alerts.filter(
+    (a) => a.priority_level === 'MEDIUM'
+  ).length;
+  const lowPriorityCount = alerts.filter(
+    (a) => a.priority_level === 'LOW'
+  ).length;
+
+  const totalAlerts = Math.max(1, alerts.length);
+  const highPct = Math.round((highPriorityCount / totalAlerts) * 100);
+  const medPct = Math.round((mediumPriorityCount / totalAlerts) * 100);
+  const lowPct = Math.round((lowPriorityCount / totalAlerts) * 100);
+  const uniqueSecuritiesWithAlerts = new Set(alerts.map((a) => a.ticker)).size;
 
   return (
     <div className="space-y-5">
@@ -49,33 +65,41 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
           <div className="text-[11px] text-[#91a0b5]">Securities monitored</div>
-          <div className="text-2xl font-bold tracking-tight text-slate-100 my-1">248</div>
+          <div className="text-2xl font-bold tracking-tight text-slate-100 my-1">
+            {watchlistCount}
+          </div>
           <div className="text-[10px] text-[#91a0b5]">
-            <span className="text-[#65d6a4] font-medium">↑ 12</span> vs previous session
+            <span className="text-[#65d6a4] font-medium">Top {watchlistCount} NSE</span> · PostgreSQL 16
           </div>
         </div>
 
         <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
-          <div className="text-[11px] text-[#91a0b5]">Alerts generated today</div>
+          <div className="text-[11px] text-[#91a0b5]">Alerts in queue</div>
           <div className="text-2xl font-bold tracking-tight text-slate-100 my-1">
             {alerts.length}
           </div>
           <div className="text-[10px] text-[#91a0b5]">
-            <span className="text-[#ff777d] font-medium">{highPriorityCount} high priority</span> · 8 under review
+            <span className="text-[#ff777d] font-medium">{highPriorityCount} high/critical</span> · {mediumPriorityCount} medium
           </div>
         </div>
 
         <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
           <div className="text-[11px] text-[#91a0b5]">Unusual activity signals</div>
-          <div className="text-2xl font-bold tracking-tight text-[#f4bd62] my-1">15</div>
-          <div className="text-[10px] text-[#91a0b5]">Across 12 securities</div>
+          <div className="text-2xl font-bold tracking-tight text-[#f4bd62] my-1">
+            {alerts.length}
+          </div>
+          <div className="text-[10px] text-[#91a0b5]">
+            Across {uniqueSecuritiesWithAlerts} securities
+          </div>
         </div>
 
         <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
-          <div className="text-[11px] text-[#91a0b5]">Open investigations</div>
-          <div className="text-2xl font-bold tracking-tight text-slate-100 my-1">06</div>
+          <div className="text-[11px] text-[#91a0b5]">Audit dispositions</div>
+          <div className="text-2xl font-bold tracking-tight text-slate-100 my-1">
+            {String(openInvestigationsCount).padStart(2, '0')}
+          </div>
           <div className="text-[10px] text-[#91a0b5]">
-            <span className="text-[#f4bd62] font-medium">2 approaching SLA</span>
+            <span className="text-[#65d6a4] font-medium">Live DB</span> · persisted trail
           </div>
         </div>
       </div>
@@ -145,28 +169,28 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             </div>
 
             <div className="space-y-3">
-              <div className="grid grid-cols-[80px_1fr_24px] items-center gap-2 text-[10px] text-[#91a0b5]">
+              <div className="grid grid-cols-[80px_1fr_28px] items-center gap-2 text-[10px] text-[#91a0b5]">
                 <span>High / Critical</span>
                 <div className="h-1.5 bg-[#26364a] rounded-full overflow-hidden">
-                  <div className="h-full bg-[#ff777d]" style={{ width: '65%' }}></div>
+                  <div className="h-full bg-[#ff777d]" style={{ width: `${highPct}%` }}></div>
                 </div>
-                <b className="text-right text-slate-200">12</b>
+                <b className="text-right text-slate-200">{String(highPriorityCount).padStart(2, '0')}</b>
               </div>
 
-              <div className="grid grid-cols-[80px_1fr_24px] items-center gap-2 text-[10px] text-[#91a0b5]">
+              <div className="grid grid-cols-[80px_1fr_28px] items-center gap-2 text-[10px] text-[#91a0b5]">
                 <span>Medium</span>
                 <div className="h-1.5 bg-[#26364a] rounded-full overflow-hidden">
-                  <div className="h-full bg-[#f4bd62]" style={{ width: '40%' }}></div>
+                  <div className="h-full bg-[#f4bd62]" style={{ width: `${medPct}%` }}></div>
                 </div>
-                <b className="text-right text-slate-200">20</b>
+                <b className="text-right text-slate-200">{String(mediumPriorityCount).padStart(2, '0')}</b>
               </div>
 
-              <div className="grid grid-cols-[80px_1fr_24px] items-center gap-2 text-[10px] text-[#91a0b5]">
+              <div className="grid grid-cols-[80px_1fr_28px] items-center gap-2 text-[10px] text-[#91a0b5]">
                 <span>Low</span>
                 <div className="h-1.5 bg-[#26364a] rounded-full overflow-hidden">
-                  <div className="h-full bg-[#65d6a4]" style={{ width: '15%' }}></div>
+                  <div className="h-full bg-[#65d6a4]" style={{ width: `${lowPct}%` }}></div>
                 </div>
-                <b className="text-right text-slate-200">05</b>
+                <b className="text-right text-slate-200">{String(lowPriorityCount).padStart(2, '0')}</b>
               </div>
             </div>
 

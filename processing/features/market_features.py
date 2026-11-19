@@ -73,24 +73,38 @@ class MarketFeatureExtractor:
             np.sqrt(parkinson_sum / (4 * np.log(2))) * np.sqrt(252)
         )
 
-        # 4. Volume Dynamics & Volume Z-Scores
+        # 4. Volume Dynamics & Volume Z-Scores (Strict shift(1) backward-looking to prevent look-ahead bias)
         vol_series = df_feat["total_traded_quantity"].astype(float)
-        vol_mean_20d = vol_series.rolling(window=rolling_window, min_periods=5).mean()
-        vol_std_20d = vol_series.rolling(window=rolling_window, min_periods=5).std().replace(0, np.nan)
+        vol_mean_20d = vol_series.shift(1).rolling(window=rolling_window, min_periods=5).mean()
+        vol_std_20d = (
+            vol_series.shift(1).rolling(window=rolling_window, min_periods=5).std().fillna(1.0).clip(lower=1e-4)
+        )
         df_feat["volume_mean_20d"] = vol_mean_20d
         df_feat["volume_zscore_20d"] = (vol_series - vol_mean_20d) / vol_std_20d
 
-        # 5. Delivery Dynamics & Delivery Z-Scores
+        # 5. Delivery Dynamics & Delivery Z-Scores (Strict shift(1) backward-looking baseline)
         deliv_qty = df_feat["delivery_qty"].astype(float)
         # Avoid division by zero
         df_feat["delivery_ratio"] = (deliv_qty / vol_series.replace(0, np.nan)).clip(0.0, 1.0)
-        deliv_mean_20d = df_feat["delivery_ratio"].rolling(window=rolling_window, min_periods=5).mean()
-        deliv_std_20d = df_feat["delivery_ratio"].rolling(window=rolling_window, min_periods=5).std().replace(0, np.nan)
+        deliv_mean_20d = df_feat["delivery_ratio"].shift(1).rolling(window=rolling_window, min_periods=5).mean()
+        deliv_std_20d = (
+            df_feat["delivery_ratio"]
+            .shift(1)
+            .rolling(window=rolling_window, min_periods=5)
+            .std()
+            .fillna(0.10)
+            .clip(lower=1e-4)
+        )
         df_feat["delivery_ratio_zscore_20d"] = (df_feat["delivery_ratio"] - deliv_mean_20d) / deliv_std_20d
 
-        # 6. Proximity to 52-week High and Low (252 trading days)
-        rolling_high_252 = df_feat["high_price"].rolling(window=252, min_periods=10).max()
-        rolling_low_252 = df_feat["low_price"].rolling(window=252, min_periods=10).min()
+        # 6. Circuit Breaker / Market Freeze Detection (Issue 13)
+        price_freeze = (df_feat["high_price"] == df_feat["low_price"]) & (df_feat["close_price"] > 0)
+        zero_vol_freeze = (vol_series == 0) & (df_feat["close_price"] > 0)
+        df_feat["is_circuit_locked"] = (price_freeze | zero_vol_freeze).astype(int)
+
+        # 7. Proximity to 52-week High and Low (252 trading days)
+        rolling_high_252 = df_feat["high_price"].shift(1).rolling(window=252, min_periods=10).max()
+        rolling_low_252 = df_feat["low_price"].shift(1).rolling(window=252, min_periods=10).min()
         df_feat["proximity_to_52w_high"] = df_feat["close_price"] / rolling_high_252
         df_feat["proximity_to_52w_low"] = df_feat["close_price"] / rolling_low_252
 

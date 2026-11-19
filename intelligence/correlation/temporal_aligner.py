@@ -127,7 +127,8 @@ class TemporalCorrelationAligner:
         )
 
         abs_delta_seconds = abs(best_delta_hours * 3600.0)
-        proximity_weight = math.exp(-self._decay_lambda * abs_delta_seconds)
+        # Enforce strict [0.0, 1.0] bounds to prevent negative or unbounded proximity weights (Issue 31)
+        proximity_weight = max(0.0, min(1.0, math.exp(-self._decay_lambda * abs_delta_seconds)))
 
         # Classify relationship based on delta_hours
         # best_delta_hours = t_news - t_market

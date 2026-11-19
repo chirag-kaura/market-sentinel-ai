@@ -30,6 +30,31 @@ export const AlertCentreView: React.FC<AlertCentreViewProps> = ({
   const highCount = alerts.filter(
     (a) => a.priority_level === 'CRITICAL' || a.priority_level === 'HIGH'
   ).length;
+  const mediumCount = alerts.filter((a) => a.priority_level === 'MEDIUM').length;
+  const lowCount = alerts.filter((a) => a.priority_level === 'LOW').length;
+
+  const handleExportCsv = () => {
+    const headers = ['alert_id', 'ticker', 'priority_level', 'composite_risk_score', 'anomaly_category', 'event_timestamp', 'summary_explanation'];
+    const rows = filteredAlerts.map((a) => [
+      a.alert_id,
+      a.ticker,
+      a.priority_level,
+      a.composite_risk_score.toFixed(2),
+      a.anomaly_category,
+      a.event_timestamp,
+      `"${(a.summary_explanation || '').replace(/"/g, '""')}"`,
+    ]);
+    const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `market_sentinel_alerts_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="space-y-5">
@@ -47,8 +72,11 @@ export const AlertCentreView: React.FC<AlertCentreViewProps> = ({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="border border-[#243247] bg-[#172437] hover:bg-[#1f314a] text-slate-200 px-3 py-1.5 rounded-lg text-xs transition">
-            Export current view
+          <button
+            onClick={handleExportCsv}
+            className="border border-[#243247] bg-[#172437] hover:bg-[#1f314a] text-slate-200 px-3 py-1.5 rounded-lg text-xs transition"
+          >
+            Export current view ({filteredAlerts.length})
           </button>
           <button
             onClick={onOpenInvestigation}
@@ -76,13 +104,17 @@ export const AlertCentreView: React.FC<AlertCentreViewProps> = ({
         </div>
 
         <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
-          <div className="text-[11px] text-[#91a0b5]">Under review</div>
-          <div className="text-2xl font-bold tracking-tight text-[#f4bd62] my-1">08</div>
+          <div className="text-[11px] text-[#91a0b5]">Medium priority</div>
+          <div className="text-2xl font-bold tracking-tight text-[#f4bd62] my-1">
+            {String(mediumCount).padStart(2, '0')}
+          </div>
         </div>
 
         <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
-          <div className="text-[11px] text-[#91a0b5]">Escalated</div>
-          <div className="text-2xl font-bold tracking-tight text-slate-100 my-1">03</div>
+          <div className="text-[11px] text-[#91a0b5]">Low priority</div>
+          <div className="text-2xl font-bold tracking-tight text-slate-100 my-1">
+            {String(lowCount).padStart(2, '0')}
+          </div>
         </div>
       </div>
 

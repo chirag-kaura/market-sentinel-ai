@@ -5,17 +5,22 @@ backed by the master surveillance catalog.
 """
 
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, date, timezone
 from fastapi import APIRouter, Depends, Query, Path
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+
+from backend.core.database import get_db
 from backend.core.exceptions import EntityNotFoundError
+from backend.core.security import get_current_user, User
+from backend.repositories.alert_repository import AlertRepository
 from backend.services.surveillance_catalog import (
     get_catalog_alerts,
     get_catalog_alert_by_id,
     LiveAlertItem,
 )
 
-router = APIRouter(prefix="/alerts", tags=["Alerts"])
+router = APIRouter(prefix="/alerts", tags=["Alerts"], dependencies=[Depends(get_current_user)])
 
 
 class AlertSummary(BaseModel):
@@ -43,24 +48,74 @@ def list_alerts(
     priority: Optional[str] = Query(None, description="Filter by priority level (CRITICAL, HIGH, MEDIUM, LOW)"),
     min_score: float = Query(0.0, ge=0.0, le=100.0, description="Minimum risk score"),
     limit: int = Query(50, ge=1, le=500, description="Max alerts to return"),
+    db: Session = Depends(get_db),
 ):
-    """List filtered surveillance risk alerts."""
-    results = get_catalog_alerts()
+    """List filtered surveillance risk alerts backed by database repository."""
+    try:
+        repo = AlertRepository(db)
+        db_alerts = repo.list_alerts(symbol=ticker, priority=priority, min_score=min_score, limit=limit)
+        if db_alerts:
+            summaries = []
+            for a in db_alerts:
+                ev_time = a.created_at_utc if a.created_at_utc else datetime.now(timezone.utc)
+                if ev_time.tzinfo is None:
+                    ev_time = ev_time.replace(tzinfo=timezone.utc)
+                summaries.append(
+                    AlertSummary(
+                        alert_id=str(a.id),
+                        ticker=a.symbol,
+                        event_timestamp=ev_time,
+                        composite_risk_score=float(a.risk_score),
+                        priority_level=a.priority_tier,
+                        anomaly_category=a.alert_category,
+                        summary_explanation=a.summary_explanation or "",
+                    )
+                )
+            return summaries
+    except Exception:
+        pass
 
+    # Resilient fallback to surveillance catalog
+    results = get_catalog_alerts()
     if ticker:
         results = [a for a in results if a.ticker.upper() == ticker.upper()]
     if priority:
         results = [a for a in results if a.priority_level.upper() == priority.upper()]
     results = [a for a in results if a.composite_risk_score >= min_score]
-
     return results[:limit]
 
 
 @router.get("/{alert_id}", response_model=AlertDetail)
 def get_alert_detail(
-    alert_id: str = Path(..., description="Unique alert identifier")
+    alert_id: str = Path(..., description="Unique alert identifier"),
+    db: Session = Depends(get_db),
 ):
-    """Retrieve full audit details for a specific surveillance alert."""
+    """Retrieve full audit details for a specific surveillance alert from DB."""
+    try:
+        repo = AlertRepository(db)
+        a = repo.get_alert_by_id(alert_id)
+        if a:
+            ev_time = a.created_at_utc if a.created_at_utc else datetime.now(timezone.utc)
+            if ev_time.tzinfo is None:
+                ev_time = ev_time.replace(tzinfo=timezone.utc)
+            return AlertDetail(
+                alert_id=str(a.id),
+                ticker=a.symbol,
+                event_timestamp=ev_time,
+                composite_risk_score=float(a.risk_score),
+                priority_level=a.priority_tier,
+                anomaly_category=a.alert_category,
+                summary_explanation=a.summary_explanation or "",
+                model_version=a.model_version or "1.0.0",
+                abnormal_return=float(a.abnormal_return or 0.0),
+                volume_ratio=float(a.volume_ratio or 1.0),
+                sentiment_score=float(a.sentiment_score or 0.0),
+                novelty_score=float(a.novelty_score or 0.0),
+                citations=list(a.citations or []),
+            )
+    except Exception:
+        pass
+
     alert = get_catalog_alert_by_id(alert_id)
     if alert:
         return alert

@@ -3,7 +3,7 @@ import { AlertSummary, PriorityLevel } from '../types';
 
 interface AlertQueueProps {
   alerts: AlertSummary[];
-  selectedAlertId?: string;
+  selectedAlertId?: string | null;
   onSelectAlert: (alertId: string) => void;
 }
 
@@ -68,3 +68,5 @@ export const AlertQueue: React.FC<AlertQueueProps> = ({
     </div>
   );
 };
+
+export default AlertQueue;

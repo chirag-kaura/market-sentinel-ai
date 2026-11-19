@@ -75,18 +75,26 @@ class StatisticalBaselineDetector:
 
         res = df.copy()
 
-        # 1. Price Return Anomaly Flags
+        # 1. Price Return Anomaly Flags (Regime-adaptive & strictly shifted historical sigma)
         ret_series = res["log_return_1d"].fillna(0.0) if "log_return_1d" in res.columns else pd.Series(0.0, index=res.index)
-        abs_ret = ret_series.abs()
+        
+        # Idiosyncratic return adjustment (Issue 19: filters out macro market-wide crashes)
+        if "market_return_1d" in res.columns:
+            beta = res.get("beta", 1.0)
+            adjusted_ret = ret_series - (beta * res["market_return_1d"].fillna(0.0))
+        else:
+            adjusted_ret = ret_series
 
-        # Approximate return z-score using 20d volatility if available, or sample std
+        abs_ret = adjusted_ret.abs()
+
+        # Approximate return z-score using shifted 20d volatility to prevent look-ahead bias (Issue 18)
         if "volatility_20d" in res.columns:
-            # Daily sigma = annualized / sqrt(252)
-            daily_sigma = (res["volatility_20d"] / np.sqrt(252)).replace(0, np.nan).fillna(0.015)
+            shifted_vol = res["volatility_20d"].shift(1).bfill()
+            daily_sigma = (shifted_vol / np.sqrt(252)).replace(0, np.nan).fillna(0.015).clip(lower=0.005)
             ret_zscore = abs_ret / daily_sigma
         else:
             std_val = abs_ret.std() or 0.015
-            ret_zscore = abs_ret / std_val
+            ret_zscore = abs_ret / max(std_val, 0.005)
         res["return_zscore"] = ret_zscore.round(4)
 
         # 2. Volume Anomaly Flags

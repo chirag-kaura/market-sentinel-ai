@@ -6,12 +6,19 @@ and FastAPI dependency injection for database session management.
 
 import os
 from typing import Generator
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from backend.models.market import Base
 
-# Database URL from environment with local fallback for testing
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./market_sentinel.db")
+# Load environment variables from .env so DATABASE_URL points strictly to PostgreSQL 16
+load_dotenv()
+
+# Database URL from environment (PostgreSQL 16 primary)
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://postgres:sentinel_secure_pass@localhost:5432/market_sentinel",
+)
 
 # Connection pool configuration optimized for low memory usage
 if DATABASE_URL.startswith("sqlite"):

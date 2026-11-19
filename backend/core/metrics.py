@@ -81,6 +81,18 @@ class PrometheusMetricsMiddleware(BaseHTTPMiddleware):
             raise
 
 
+def record_feature_drift(symbol: str, feature: str, psi_score: float) -> None:
+    """Updates the Prometheus Gauge for a feature's Population Stability Index (PSI)."""
+    FEATURE_DRIFT_PSI.labels(symbol=symbol, feature=feature).set(psi_score)
+
+
+FEATURE_DRIFT_PSI = Gauge(
+    "sentinel_feature_psi",
+    "Population Stability Index (PSI) drift score per symbol and feature",
+    ["symbol", "feature"],
+)
+
+
 def get_prometheus_metrics_payload() -> bytes:
     """Renders Prometheus registry scrape output in standard text exposition format."""
     return generate_latest(REGISTRY)

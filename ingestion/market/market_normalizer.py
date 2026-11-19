@@ -48,6 +48,8 @@ class MarketDataNormalizer:
         bhavcopy_records: List[Dict],
         delivery_map: Optional[Dict[str, Dict]] = None,
         source_provider: str = "SRC-NSE-EOD",
+        original_source_url: Optional[str] = None,
+        content_hash: Optional[str] = None,
     ) -> Tuple[List[MarketQuoteIngestSchema], List[Dict]]:
         """Merge Bhavcopy OHLCV with Delivery metrics and validate via Pydantic.
 
@@ -57,6 +59,7 @@ class MarketDataNormalizer:
         valid_records: List[MarketQuoteIngestSchema] = []
         quarantined_records: List[Dict] = []
         delivery_map = delivery_map or {}
+        now_utc = datetime.now(timezone.utc)
 
         for b_rec in bhavcopy_records:
             symbol = b_rec["symbol"]
@@ -81,6 +84,9 @@ class MarketDataNormalizer:
                 "delivery_qty": delivery_qty,
                 "delivery_pct": delivery_pct,
                 "source_provider": source_provider,
+                "retrieval_timestamp_utc": now_utc,
+                "original_source_url": original_source_url,
+                "content_hash": content_hash,
             }
 
             try:

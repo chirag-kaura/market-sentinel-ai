@@ -89,7 +89,8 @@ services:
   redpanda:
     image: docker.redpanda.com/redpandadata/redpanda:v23.3.4
     container_name: sentinel-redpanda
-    profiles: ["streaming"]
+    profiles: ["streaming", "dev-stack", "core"]
+    restart: unless-stopped
     command:
       - redpanda start
       - --smp 1
@@ -106,16 +107,37 @@ services:
           memory: 1280M
           cpus: '1.0'
 
+  redpanda-console:
+    image: docker.redpanda.com/redpandadata/console:v2.4.3
+    container_name: sentinel-redpanda-console
+    profiles: ["streaming", "dev-stack", "core"]
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_BROKERS: redpanda:29092
+    depends_on:
+      - redpanda
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+
   # -------------------------------------------------------------
   # PROFILE: monitoring (Prometheus + Grafana + Alertmanager)
   # -------------------------------------------------------------
   prometheus:
     image: prom/prometheus:v2.48.0
     container_name: sentinel-prometheus
-    profiles: ["monitoring"]
+    profiles: ["monitoring", "dev-stack", "core"]
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "9090:9090"
     volumes:
+      - ./deployment/alertmanager/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./deployment/alertmanager/surveillance_alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
     deploy:
       resources:
@@ -126,11 +148,14 @@ services:
   grafana:
     image: grafana/grafana:10.2.2
     container_name: sentinel-grafana
-    profiles: ["monitoring"]
+    profiles: ["monitoring", "dev-stack", "core"]
+    restart: unless-stopped
+    depends_on:
+      - prometheus
     ports:
       - "3001:3000"
     volumes:
-      - ./deployment/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./deployment/grafana/dashboards:/opt/sentinel/dashboards:ro
       - ./deployment/grafana/provisioning:/etc/grafana/provisioning:ro
     deploy:
       resources:

@@ -130,6 +130,11 @@ class EntityTickerResolver:
 
         clean_entity = raw_entity.strip().lower()
 
+        # Guard against short generic tokens (e.g. 'it', 'lt') unless exact uppercase or financial context
+        if len(clean_entity) <= 2 and not raw_entity.strip().isupper():
+            if not context_text or not any(k in context_text.lower() for k in ["stock", "share", "equity", "nse", "bse", "quarter", "results", "board"]):
+                return None
+
         # 1. Exact Match via Alias Index
         if clean_entity in self._alias_index:
             ticker = self._alias_index[clean_entity]

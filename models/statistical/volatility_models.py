@@ -178,6 +178,7 @@ class GARCHVolatilityModel:
 class DynamicVolatilityBandGenerator:
     """
     Computes dynamic surveillance bands scaling anomaly thresholds to market volatility regimes.
+    Enforces non-negative sorted confidence bounds (Issue 17).
     """
 
     @staticmethod
@@ -188,6 +189,7 @@ class DynamicVolatilityBandGenerator:
     ) -> pd.DataFrame:
         """
         Generates dynamic price bands: Upper = P_{t-1} * (1 + k*sigma_t), Lower = P_{t-1} * (1 - k*sigma_t).
+        Guarantees upper >= lower >= 0.0 to satisfy database and mathematical constraints.
         """
         df = pd.DataFrame(index=prices.index)
         df["price"] = prices
@@ -195,10 +197,48 @@ class DynamicVolatilityBandGenerator:
         daily_sigma = conditional_volatility / np.sqrt(252)
 
         prev_price = prices.shift(1).bfill()
-        df["dynamic_upper_band"] = prev_price * (1.0 + num_std * daily_sigma)
-        df["dynamic_lower_band"] = prev_price * (1.0 - num_std * daily_sigma)
+        raw_upper = prev_price * (1.0 + num_std * daily_sigma)
+        raw_lower = np.maximum(0.0, prev_price * (1.0 - num_std * daily_sigma))
+
+        # Enforce sorted non-negative bounds
+        df["dynamic_upper_band"] = np.maximum(raw_upper, raw_lower)
+        df["dynamic_lower_band"] = np.minimum(raw_upper, raw_lower)
         df["is_band_breach"] = (
             (prices > df["dynamic_upper_band"]) | (prices < df["dynamic_lower_band"])
         ).astype(int)
 
         return df
+
+
+class GJRGARCHVolatilityModel:
+    """
+    Asymmetric GJR-GARCH(1,1) model capturing leverage effects (Glosten, Jagannathan, Runkle 1993):
+    sigma_t^2 = omega + (alpha + gamma * I_{r_{t-1} < 0}) * r_{t-1}^2 + beta * sigma_{t-1}^2
+    Empirically models heightened downside volatility shocks preceding regulatory events.
+    """
+
+    def __init__(self, omega: float = 1e-5, alpha: float = 0.05, gamma: float = 0.08, beta: float = 0.85):
+        self.omega = omega
+        self.alpha = alpha
+        self.gamma = gamma
+        self.beta = beta
+
+    def compute_conditional_volatility(self, returns: pd.Series, annualize: bool = True) -> pd.Series:
+        clean_ret = returns.fillna(0.0).values
+        n = len(clean_ret)
+        variance = np.zeros(n)
+        variance[0] = np.var(clean_ret) if len(clean_ret) > 1 and np.var(clean_ret) > 0 else 0.0002
+
+        for t in range(1, n):
+            r_prev = clean_ret[t - 1]
+            leverage_indicator = 1.0 if r_prev < 0 else 0.0
+            variance[t] = (
+                self.omega
+                + (self.alpha + self.gamma * leverage_indicator) * (r_prev ** 2)
+                + self.beta * variance[t - 1]
+            )
+
+        std_dev = np.sqrt(np.maximum(variance, 1e-8))
+        if annualize:
+            std_dev = std_dev * np.sqrt(252)
+        return pd.Series(std_dev, index=returns.index, name="gjr_garch_volatility")

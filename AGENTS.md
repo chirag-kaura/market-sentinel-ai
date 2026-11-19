@@ -10,11 +10,12 @@
 
 ## 1. Core Operating Principles
 
-1. **Mandatory Baby-Step Implementation**:
-   - DO NOT attempt to build the entire project in one execution or write massive blocks of code across components at once.
+1. **Mandatory Baby-Step Implementation & Batch Execution Mode**:
+   - DO NOT attempt to build the entire project in one unverified execution or write uncontrolled blocks of code across components.
    - Work strictly through the **12 defined phases** in sequential order.
    - Every phase must be subdivided into small, manageable, verified steps.
-   - For every step, present the plan before coding, implement only that step, test it, document it immediately, and halt for user review.
+   - For every step or step sequence, present the plan before coding.
+   - **Batch Execution Authorization**: When the user/PM explicitly authorizes a defined sequence of steps to be completed "in one go", the agent MUST execute all authorized steps sequentially in that run (implementing, testing, and documenting each step) without stopping for intermediate prompts, presenting the comprehensive verification report upon completion. Otherwise, halt for individual step review.
 
 2. **Source of Truth & Session Continuity**:
    - At the beginning of every turn/session:
@@ -187,7 +188,7 @@ Present to the user:
 - **Limitations & Discovered Blockers**
 - **Updated Documentation & Project Tracker links**
 - **Proposed Next Step**
-- **WAIT FOR APPROVAL**: Do not advance to subsequent steps without explicit user confirmation.
+- **WAIT FOR APPROVAL**: Do not advance to subsequent steps without explicit user confirmation, unless the user has authorized batch execution of a defined multi-step sequence "in one go". When authorized in batch mode, complete all planned steps in the sequence with their respective tests and documentation, then present the complete report.
 
 ---
 *Follow these instructions with zero deviation. When in doubt, defer to [`docs/MASTER_IMPLEMENTATION_PROMPT.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/MASTER_IMPLEMENTATION_PROMPT.md) or ask the human project owner for clarification.*

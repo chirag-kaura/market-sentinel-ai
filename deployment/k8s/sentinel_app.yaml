@@ -3,6 +3,20 @@ kind: Namespace
 metadata:
   name: market-sentinel
 ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sentinel-secrets
+  namespace: market-sentinel
+type: Opaque
+stringData:
+  # Sanitized defaults for manifests; inject real credentials via kubectl at deploy time.
+  DATABASE_URL: "postgresql://postgres:sentinel_secure_pass@host.docker.internal:5432/market_sentinel"
+  KAFKA_BOOTSTRAP_SERVERS: "redpanda:29092"
+  REDIS_URL: "redis://redis-service:6379/0"
+  JWT_SECRET_KEY: "change_me_to_production_jwt_secret_key"
+  GROQ_API_KEY: "change_me_to_production_groq_api_key"
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -28,33 +42,69 @@ spec:
             - containerPort: 8000
           env:
             - name: DATABASE_URL
-              value: "postgresql://sentinel:sentinel_secure_pass@postgres-service:5432/market_sentinel"
+              valueFrom:
+                secretKeyRef:
+                  name: sentinel-secrets
+                  key: DATABASE_URL
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              valueFrom:
+                secretKeyRef:
+                  name: sentinel-secrets
+                  key: KAFKA_BOOTSTRAP_SERVERS
             - name: REDIS_URL
-              value: "redis://redis-service:6379/0"
+              valueFrom:
+                secretKeyRef:
+                  name: sentinel-secrets
+                  key: REDIS_URL
+            - name: JWT_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: sentinel-secrets
+                  key: JWT_SECRET_KEY
+            - name: GROQ_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: sentinel-secrets
+                  key: GROQ_API_KEY
           resources:
             requests:
-              memory: "512Mi"
-              cpu: "250m"
+              memory: "256Mi"
+              cpu: "200m"
             limits:
-              memory: "1536Mi"
+              memory: "1024Mi"
               cpu: "1000m"
           livenessProbe:
             httpGet:
               path: /health
               port: 8000
-            initialDelaySeconds: 15
+            initialDelaySeconds: 20
             periodSeconds: 20
           readinessProbe:
             httpGet:
               path: /ready
               port: 8000
-            initialDelaySeconds: 5
+            initialDelaySeconds: 10
             periodSeconds: 10
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: sentinel-backend-service
+  namespace: market-sentinel
+spec:
+  type: NodePort
+  selector:
+    app: sentinel-backend
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+      nodePort: 30800
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
   namespace: market-sentinel
 spec:
   type: ClusterIP
@@ -90,7 +140,7 @@ spec:
             - containerPort: 80
           resources:
             requests:
-              memory: "128Mi"
+              memory: "64Mi"
               cpu: "100m"
             limits:
               memory: "256Mi"

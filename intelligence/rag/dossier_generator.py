@@ -5,11 +5,15 @@ to generate standardized, 8-point regulatory surveillance investigation dossiers
 """
 
 from dataclasses import dataclass
+import hashlib
+import logging
 from typing import Any, Dict, List, Optional
 from intelligence.correlation.alert_models import SurveillanceAlertSchema
 from intelligence.rag.retrieval_engine import HybridFilteredRetrievalEngine, RetrievedEvidenceChunk
 from intelligence.rag.prompt_builder import GroundedPromptBuilder
 from intelligence.rag.llm_provider import BaseLLMProvider, LLMGenerationResponse
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -62,8 +66,20 @@ class InvestigationDossierGenerator:
             ticker=clean_ticker,
             anchor_timestamp=alert.alert_timestamp,
             lookback_days=lookback_days,
-            top_k=3
+            top_k=5
         )
+
+        # Deduplicate syndicated evidence chunks by normalized content hash (Issue 40)
+        seen_hashes = set()
+        deduped_evidence: List[RetrievedEvidenceChunk] = []
+        for c in evidence_chunks:
+            # Simple 32-char fingerprint of first 100 characters
+            norm_snippet = "".join(c.content[:100].lower().split())
+            snip_hash = hashlib.md5(norm_snippet.encode("utf-8")).hexdigest()
+            if snip_hash not in seen_hashes:
+                seen_hashes.add(snip_hash)
+                deduped_evidence.append(c)
+        evidence_chunks = deduped_evidence[:3]
 
         # 2. Build grounded prompt payload
         prompt_payload = self.prompt_builder.build_investigation_prompt(alert, evidence_chunks)
@@ -76,7 +92,22 @@ class InvestigationDossierGenerator:
         )
 
         # 4. Synthesize structured 8-point dossier
-        return self._synthesize_dossier(alert, evidence_chunks, llm_response, prompt_payload.has_evidence)
+        dossier = self._synthesize_dossier(alert, evidence_chunks, llm_response, prompt_payload.has_evidence)
+
+        # 5. Blocking Grounding & Hallucination Audit Gate (Issue 37)
+        from intelligence.rag.grounding_auditor import HallucinationGroundingAuditor
+        auditor = HallucinationGroundingAuditor()
+        audit_report = auditor.audit_dossier(dossier, evidence_chunks)
+        if not audit_report.is_grounded:
+            logger.warning(
+                "Dossier for %s failed grounding audit (unsupported=%d, cross_contam=%s). Quarantining to zero-evidence template.",
+                alert.ticker,
+                audit_report.unsupported_claims_count,
+                audit_report.cross_company_contamination,
+            )
+            dossier = self._synthesize_dossier(alert, [], llm_response, False)
+
+        return dossier
 
     def _synthesize_dossier(
         self,

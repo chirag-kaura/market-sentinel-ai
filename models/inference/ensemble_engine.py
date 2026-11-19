@@ -84,6 +84,17 @@ class SurveillanceEnsembleEngine:
         self.weight_volatility = weight_volatility
         self.is_fitted = False
 
+    def health_check(self) -> Dict[str, Any]:
+        """Validate operational readiness of quantitative inference sub-models."""
+        return {
+            "status": "ready",
+            "components": {
+                "baseline_detector": "ready" if self.baseline_detector else "missing",
+                "iforest_detector": "ready" if self.iforest_detector else "missing",
+                "volatility_forecaster": "ready" if self.volatility_forecaster else "missing",
+            },
+        }
+
     def fit(self, historical_df: pd.DataFrame) -> SurveillanceEnsembleEngine:
         """
         Fits all constituent sub-models on historical surveillance feature data.

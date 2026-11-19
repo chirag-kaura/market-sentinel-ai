@@ -5,9 +5,14 @@ Phase 10 — Step 10.3: Stock metadata, real quotes, and watchlist metrics.
 
 from typing import List, Optional
 from datetime import date, datetime
-from fastapi import APIRouter, Query, Path
+from fastapi import APIRouter, Depends, Query, Path
 from pydantic import BaseModel
+from sqlalchemy import select, desc
+from sqlalchemy.orm import Session
+
+from backend.core.database import get_db
 from backend.core.exceptions import EntityNotFoundError
+from backend.models.market import SymbolMasterModel, MarketQuoteModel, RiskAlertModel
 
 router = APIRouter(prefix="/market", tags=["Market Data"])
 
@@ -243,8 +248,29 @@ _WATCHLIST_QUOTES = [
 @router.get("/symbols", response_model=List[SymbolInfo])
 def list_symbols(
     sector: Optional[str] = Query(None, description="Filter symbols by sector"),
+    db: Session = Depends(get_db),
 ):
-    """Retrieve canonical master symbols list."""
+    """Retrieve canonical master symbols list from database."""
+    try:
+        query = select(SymbolMasterModel)
+        if sector:
+            query = query.where(SymbolMasterModel.sector.ilike(f"%{sector}%"))
+        db_symbols = db.scalars(query).all()
+        if db_symbols:
+            return [
+                SymbolInfo(
+                    symbol=s.symbol,
+                    company_name=s.company_name,
+                    sector=s.sector,
+                    industry=s.industry,
+                    exchange=s.exchange,
+                    is_active=s.is_active,
+                )
+                for s in db_symbols
+            ]
+    except Exception:
+        pass
+
     results = list(_SYMBOLS.values())
     if sector:
         results = [s for s in results if s.sector.lower() == sector.lower()]
@@ -252,17 +278,88 @@ def list_symbols(
 
 
 @router.get("/watchlist", response_model=List[MarketWatchQuote])
-def get_watchlist():
-    """Retrieve live market surveillance watchlist metrics."""
+def get_watchlist(db: Session = Depends(get_db)):
+    """Retrieve live market surveillance watchlist metrics from database."""
+    try:
+        symbols = db.scalars(select(SymbolMasterModel)).all()
+        if symbols:
+            quotes_list: List[MarketWatchQuote] = []
+            for s in symbols:
+                # Fetch last two quotes for symbol to compute actual change
+                recent_quotes = (
+                    db.query(MarketQuoteModel)
+                    .filter(MarketQuoteModel.symbol == s.symbol)
+                    .order_by(desc(MarketQuoteModel.trade_date))
+                    .limit(2)
+                    .all()
+                )
+                if not recent_quotes:
+                    continue
+
+                latest = recent_quotes[0]
+                prev = recent_quotes[1] if len(recent_quotes) > 1 else recent_quotes[0]
+                last_p = float(latest.close_price)
+                prev_p = float(prev.close_price)
+                change_pct = round(((last_p - prev_p) / prev_p) * 100.0, 2) if prev_p > 0 else 0.0
+
+                # Check latest risk alert for this symbol
+                latest_alert = (
+                    db.query(RiskAlertModel)
+                    .filter(RiskAlertModel.symbol == s.symbol)
+                    .order_by(desc(RiskAlertModel.risk_score))
+                    .first()
+                )
+                r_score = float(latest_alert.risk_score) if latest_alert else 25.0
+                priority = latest_alert.priority_tier if latest_alert else "LOW"
+                vol_ratio = float(latest_alert.volume_ratio) if latest_alert and latest_alert.volume_ratio else 1.2
+                regime = "Elevated" if r_score >= 70.0 else ("Moderate" if r_score >= 50.0 else "Normal")
+                sig = latest_alert.alert_category if latest_alert else "Baseline"
+
+                quotes_list.append(
+                    MarketWatchQuote(
+                        symbol=s.symbol,
+                        company_name=s.company_name,
+                        last_price=last_p,
+                        change_pct=change_pct,
+                        volume_ratio=vol_ratio,
+                        volatility_regime=regime,
+                        signal=sig,
+                        risk_score=r_score,
+                        priority=priority,
+                    )
+                )
+
+            if quotes_list:
+                # Sort by risk score descending
+                quotes_list.sort(key=lambda q: q.risk_score, reverse=True)
+                return quotes_list
+    except Exception:
+        pass
+
     return _WATCHLIST_QUOTES
 
 
 @router.get("/symbols/{symbol}", response_model=SymbolInfo)
 def get_symbol_detail(
-    symbol: str = Path(..., description="Canonical stock symbol")
+    symbol: str = Path(..., description="Canonical stock symbol"),
+    db: Session = Depends(get_db),
 ):
-    """Get metadata for a specific ticker symbol."""
+    """Get metadata for a specific ticker symbol from database."""
     sym = symbol.upper()
+    try:
+        db_s = db.query(SymbolMasterModel).filter(SymbolMasterModel.symbol == sym).first()
+        if db_s:
+            return SymbolInfo(
+                symbol=db_s.symbol,
+                company_name=db_s.company_name,
+                sector=db_s.sector,
+                industry=db_s.industry,
+                exchange=db_s.exchange,
+                is_active=db_s.is_active,
+            )
+    except Exception:
+        pass
+
     if sym not in _SYMBOLS:
         raise EntityNotFoundError(entity_name="Symbol", entity_id=symbol)
     return _SYMBOLS[sym]

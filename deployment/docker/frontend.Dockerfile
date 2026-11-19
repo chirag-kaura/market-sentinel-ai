@@ -10,7 +10,9 @@ COPY frontend/package.json ./
 RUN npm install
 
 COPY frontend/ ./
-RUN npm run build || mkdir -p dist && touch dist/index.html
+ARG VITE_API_BASE_URL=/api/v1
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+RUN npm run build
 
 # Stage 2: Serve with Hardened NGINX Alpine
 FROM nginx:1.25-alpine AS runtime

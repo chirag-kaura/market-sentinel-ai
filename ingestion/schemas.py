@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, model_validator
 
 
 class MarketQuoteIngestSchema(BaseModel):
-    """Pydantic validation model for raw daily market quotes."""
+    """Pydantic validation model for raw daily market quotes with full audit provenance."""
     symbol: str = Field(..., min_length=1, max_length=20)
     trade_date: date
     open_price: Decimal = Field(..., gt=Decimal("0.0"))
@@ -18,6 +18,9 @@ class MarketQuoteIngestSchema(BaseModel):
     delivery_qty: Optional[int] = Field(None, ge=0)
     delivery_pct: Optional[Decimal] = Field(None, ge=Decimal("0.0"), le=Decimal("100.0"))
     source_provider: str = Field(..., min_length=2, max_length=50)
+    retrieval_timestamp_utc: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    original_source_url: Optional[str] = Field(None, max_length=1000)
+    content_hash: Optional[str] = Field(None, max_length=64)
 
     @model_validator(mode="after")
     def validate_price_boundaries(self) -> "MarketQuoteIngestSchema":
@@ -41,13 +44,15 @@ class MarketQuoteIngestSchema(BaseModel):
 
 
 class NewsArticleIngestSchema(BaseModel):
-    """Pydantic validation model for raw financial news articles."""
+    """Pydantic validation model for raw financial news articles with provenance metadata."""
     canonical_url: str = Field(..., min_length=10, max_length=1000)
     title: str = Field(..., min_length=10, max_length=500)
     summary: Optional[str] = None
     body_text: Optional[str] = None
     source_outlet: str = Field(..., min_length=2, max_length=100)
     published_at_utc: datetime
+    retrieval_timestamp_utc: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    content_hash: Optional[str] = Field(None, max_length=64)
 
     @model_validator(mode="after")
     def validate_temporal_sanity(self) -> "NewsArticleIngestSchema":

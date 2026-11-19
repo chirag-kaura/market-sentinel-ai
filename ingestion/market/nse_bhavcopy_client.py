@@ -2,15 +2,19 @@
 
 Downloads, extracts, and parses official National Stock Exchange of India (NSE)
 Unified Distributable File Format (UDiFF) Bhavcopy reports.
+Supports resilient network download with exponential backoff and SHA-256 provenance tracking.
 """
 import csv
+import hashlib
 import io
 import logging
 from datetime import date
 from decimal import Decimal
-from typing import Dict, List, Optional
-import urllib.request
+from typing import Dict, List, Optional, Tuple
 import zipfile
+import httpx
+
+from ingestion.utils.retry_policy import ingestion_retry
 
 logger = logging.getLogger(__name__)
 
@@ -22,14 +26,31 @@ class NSEBhavcopyClient:
         self.user_agent = user_agent
         self.base_headers = {
             "User-Agent": self.user_agent,
-            "Accept": "*/*",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
             "Referer": "https://www.nseindia.com/all-reports",
+            "Sec-Ch-Ua": '"Chromium";v="124", "Google Chrome";v="124"',
+            "Sec-Ch-Ua-Mobile": "?0",
+            "Sec-Ch-Ua-Platform": '"Windows"',
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "same-site",
         }
 
     def construct_udiff_url(self, trade_date: date) -> str:
         """Construct official NSE UDiFF daily bhavcopy download URL."""
         date_str = trade_date.strftime("%Y%m%d")
         return f"https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_{date_str}_F_0000.csv.zip"
+
+    @ingestion_retry()
+    def download_bhavcopy(self, trade_date: date) -> bytes:
+        """Download raw Bhavcopy ZIP archive with automated retry policy."""
+        url = self.construct_udiff_url(trade_date)
+        logger.info("Downloading NSE Bhavcopy from %s", url)
+        with httpx.Client(headers=self.base_headers, timeout=30.0, follow_redirects=True) as client:
+            resp = client.get(url)
+            resp.raise_for_status()
+            return resp.content
 
     def parse_csv_stream(self, csv_file: io.TextIOBase) -> List[Dict]:
         """Parse uncompressed Bhavcopy CSV records and normalize fields.
@@ -76,3 +97,15 @@ class NSEBhavcopyClient:
             with zf.open(csv_filenames[0]) as csv_file:
                 text_stream = io.TextIOWrapper(csv_file, encoding="utf-8")
                 return self.parse_csv_stream(text_stream)
+
+    def download_and_parse(self, trade_date: date) -> Tuple[List[Dict], str, str]:
+        """Download, verify SHA-256 checksum, and parse Bhavcopy records.
+
+        Returns:
+            Tuple of (records, source_url, content_hash)
+        """
+        url = self.construct_udiff_url(trade_date)
+        zip_bytes = self.download_bhavcopy(trade_date)
+        content_hash = hashlib.sha256(zip_bytes).hexdigest()
+        records = self.parse_zip_bytes(zip_bytes)
+        return records, url, content_hash

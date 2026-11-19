@@ -7,9 +7,13 @@ retry handling, structured JSON generation, and zero-cost mock testing capabilit
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import json
+import logging
 import os
 import time
 from typing import Any, Dict, List, Optional
+import httpx
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -121,18 +125,23 @@ class MockLLMProvider(BaseLLMProvider):
 class GroqLLMProvider(BaseLLMProvider):
     """
     Remote Groq Cloud LLM provider implementing ultra-low latency inference
-    (e.g. 'llama3-70b-8192' or 'llama-3.1-8b-instant').
+    (e.g. 'openai/gpt-oss-120b' or 'llama-3.1-8b-instant').
     """
 
-    DEFAULT_MODEL = "llama-3.1-8b-instant"
+    DEFAULT_MODEL = "openai/gpt-oss-120b"
 
     def __init__(
         self,
         api_key: Optional[str] = None,
         model_name: Optional[str] = None,
-        timeout_seconds: float = 15.0,
+        timeout_seconds: float = 25.0,
         max_retries: int = 3
     ):
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+        except ImportError:
+            pass
         self.api_key = api_key or os.getenv("GROQ_API_KEY", "")
         self.model_name = model_name or os.getenv("LLM_MODEL", self.DEFAULT_MODEL)
         self.timeout_seconds = timeout_seconds
@@ -146,12 +155,51 @@ class GroqLLMProvider(BaseLLMProvider):
         max_tokens: int = 1024
     ) -> LLMGenerationResponse:
         if not self.api_key:
-            # Fallback gracefully to mock provider if no API key is configured
             return MockLLMProvider(self.model_name).generate(prompt, system_prompt, temperature, max_tokens)
 
-        # In production with valid key, call Groq API via requests / SDK with exponential backoff
-        # For offline-safe testing without API keys, we delegate to mock provider
-        return MockLLMProvider(self.model_name).generate(prompt, system_prompt, temperature, max_tokens)
+        # Real Groq Cloud API call with fallback on rate limiting or provider degradation (Issue 36)
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
+        t0 = time.time()
+        try:
+            with httpx.Client(timeout=self.timeout_seconds) as client:
+                resp = client.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": self.model_name,
+                        "messages": messages,
+                        "temperature": temperature,
+                        "max_tokens": max_tokens,
+                    },
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                choice = data["choices"][0]["message"]["content"]
+                usage = data.get("usage", {})
+                p_tok = usage.get("prompt_tokens", len(prompt.split()))
+                c_tok = usage.get("completion_tokens", len(choice.split()))
+                return LLMGenerationResponse(
+                    content=choice,
+                    structured_data=None,
+                    model_name=self.model_name,
+                    prompt_tokens=p_tok,
+                    completion_tokens=c_tok,
+                    total_tokens=p_tok + c_tok,
+                    latency_seconds=round(time.time() - t0, 4),
+                    is_mock=False,
+                )
+        except Exception as exc:
+            logger.warning(
+                "Groq Cloud API inference failed (%s). Triggering deterministic rules-based template fallback.", exc
+            )
+            return MockLLMProvider(self.model_name).generate(prompt, system_prompt, temperature, max_tokens)
 
     def generate_structured(
         self,
@@ -163,6 +211,26 @@ class GroqLLMProvider(BaseLLMProvider):
     ) -> LLMGenerationResponse:
         if not self.api_key:
             return MockLLMProvider(self.model_name).generate_structured(prompt, system_prompt, schema, temperature, max_tokens)
+
+        try:
+            resp = self.generate(prompt, system_prompt, temperature, max_tokens)
+            if not resp.is_mock:
+                try:
+                    structured = json.loads(resp.content)
+                    return LLMGenerationResponse(
+                        content=resp.content,
+                        structured_data=structured,
+                        model_name=self.model_name,
+                        prompt_tokens=resp.prompt_tokens,
+                        completion_tokens=resp.completion_tokens,
+                        total_tokens=resp.total_tokens,
+                        latency_seconds=resp.latency_seconds,
+                        is_mock=False,
+                    )
+                except json.JSONDecodeError:
+                    pass
+        except Exception as exc:
+            logger.warning("Structured Groq inference fallback: %s", exc)
 
         return MockLLMProvider(self.model_name).generate_structured(prompt, system_prompt, schema, temperature, max_tokens)
 

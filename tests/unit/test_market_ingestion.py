@@ -1,13 +1,18 @@
 """Unit tests for Market Data Ingestion and Validation Pipeline."""
-import io
+from datetime import date, timezone
 from decimal import Decimal
+import io
 import os
+from unittest.mock import MagicMock, patch
+import zipfile
+import httpx
 import pytest
 
 from ingestion.market.nse_bhavcopy_client import NSEBhavcopyClient
 from ingestion.market.nse_delivery_client import NSEDeliveryClient
 from ingestion.market.market_normalizer import MarketDataNormalizer
 from ingestion.schemas import MarketQuoteIngestSchema
+from ingestion.utils.retry_policy import ingestion_retry, is_retryable_exception
 
 # Realistic official UDiFF sample data
 SAMPLE_UDIFF_CSV = """TradDt,BizDt,Sgmt,Src,FinInstrmTp,FinInstrmId,ISIN,TckrSymb,SctySrs,XpryDt,FininstrmActlXpryDt,StrkPric,OptnTp,FinInstrmNm,OpnPric,HghPric,LwPric,ClsPric,LastPric,PrvsClsgPric,UndrlygPric,SttlmPric,OpnIntrst,ChngInOpnIntrst,TtlTradgVol,TtlTrfVal,TtlNbOfTxsExctd,SsnId,NewBrdLotQty,Rmks,Rsvd01,Rsvd02,Rsvd03,Rsvd04
@@ -25,6 +30,14 @@ SAMPLE_MTO_DAT = """10,SECURITY WISE DELIVERABLE POSITION FOR 17/11/2026
 20,4,GOVTBOND,GS,50000,45000,90.00
 99,TOTAL RECORDS: 4
 """
+
+
+def create_sample_zip_bytes(csv_content: str) -> bytes:
+    """Helper to build in-memory zip archive containing sample CSV."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("BhavCopy_sample.csv", csv_content)
+    return buf.getvalue()
 
 
 def test_bhavcopy_client_parsing():
@@ -53,8 +66,40 @@ def test_delivery_client_parsing():
     assert delivery_map["RELIANCE"]["delivery_pct"] == Decimal("54.45")
 
 
-def test_market_data_normalizer_valid_merge():
-    """Test merging and schema validation for valid authentic records."""
+def test_bhavcopy_download_and_parse_mock():
+    """Test network download and parsing of Bhavcopy with mocked HTTP response."""
+    client = NSEBhavcopyClient()
+    zip_bytes = create_sample_zip_bytes(SAMPLE_UDIFF_CSV)
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.content = zip_bytes
+
+    with patch("httpx.Client.get", return_value=mock_resp):
+        records, url, content_hash = client.download_and_parse(date(2026, 11, 17))
+
+    assert len(records) == 3
+    assert "nsearchives.nseindia.com" in url
+    assert len(content_hash) == 64  # Valid SHA-256 hex string
+
+
+def test_delivery_download_and_parse_mock():
+    """Test network download and parsing of MTO delivery with mocked HTTP response."""
+    client = NSEDeliveryClient()
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.text = SAMPLE_MTO_DAT
+
+    with patch("httpx.Client.get", return_value=mock_resp):
+        deliv_map, url, content_hash = client.download_and_parse(date(2026, 11, 17))
+
+    assert len(deliv_map) == 3
+    assert "RELIANCE" in deliv_map
+    assert len(content_hash) == 64
+
+
+def test_market_data_normalizer_valid_merge_with_provenance():
+    """Test merging, schema validation, and provenance preservation."""
     bhavcopy_client = NSEBhavcopyClient()
     delivery_client = NSEDeliveryClient()
     normalizer = MarketDataNormalizer(
@@ -65,7 +110,15 @@ def test_market_data_normalizer_valid_merge():
     bhav_records = bhavcopy_client.parse_csv_stream(io.StringIO(SAMPLE_UDIFF_CSV))
     deliv_records = delivery_client.parse_mto_stream(io.StringIO(SAMPLE_MTO_DAT))
 
-    valid, quarantined = normalizer.merge_and_validate(bhav_records, deliv_records)
+    source_url = "https://nsearchives.nseindia.com/sample.zip"
+    dummy_hash = "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+
+    valid, quarantined = normalizer.merge_and_validate(
+        bhav_records,
+        deliv_records,
+        original_source_url=source_url,
+        content_hash=dummy_hash,
+    )
 
     assert len(valid) == 3
     assert len(quarantined) == 0
@@ -75,6 +128,9 @@ def test_market_data_normalizer_valid_merge():
     assert rel.close_price == Decimal("2475.25")
     assert rel.delivery_qty == 2850000
     assert rel.delivery_pct == Decimal("54.45")
+    assert rel.original_source_url == source_url
+    assert rel.content_hash == dummy_hash
+    assert rel.retrieval_timestamp_utc is not None
 
 
 def test_market_data_normalizer_quarantines_invalid_record():
@@ -106,3 +162,15 @@ def test_market_data_normalizer_quarantines_invalid_record():
     # Clean up test artifact
     if os.path.exists("data/quarantine/test_quarantine.jsonl"):
         os.remove("data/quarantine/test_quarantine.jsonl")
+
+
+def test_retry_policy_recognizes_retryable_codes():
+    """Verify retry policy accurately detects retryable status codes (429, 502, 503, 504)."""
+    req = httpx.Request("GET", "https://example.com")
+    resp_429 = httpx.Response(429, request=req)
+    resp_503 = httpx.Response(503, request=req)
+    resp_404 = httpx.Response(404, request=req)
+
+    assert is_retryable_exception(httpx.HTTPStatusError("Rate limited", request=req, response=resp_429))
+    assert is_retryable_exception(httpx.HTTPStatusError("Service unavailable", request=req, response=resp_503))
+    assert not is_retryable_exception(httpx.HTTPStatusError("Not found", request=req, response=resp_404))

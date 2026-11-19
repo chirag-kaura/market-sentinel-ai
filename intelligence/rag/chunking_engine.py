@@ -70,8 +70,16 @@ class FinancialTextChunker:
                     continue
 
                 sent_token_len = len(sent_clean.split())
+                is_table = ("|" in sent_clean) or ("\t" in sent_clean)
 
-                if current_tokens + sent_token_len > self.target_chunk_tokens and current_sentences:
+                # Keep tabular structures atomic unless exceeding max_chunk_tokens (Issue 28)
+                should_flush = (
+                    current_tokens + sent_token_len > self.target_chunk_tokens
+                    and current_sentences
+                    and (not is_table or current_tokens + sent_token_len > self.max_chunk_tokens)
+                )
+
+                if should_flush:
                     # Flush chunk
                     chunk_text = " ".join(current_sentences)
                     chunk_id = f"{meta.doc_id}_sec{sec.section_index}_chk{chunk_counter:03d}"

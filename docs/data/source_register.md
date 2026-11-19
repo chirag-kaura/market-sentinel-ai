@@ -80,8 +80,8 @@ flowchart TD
   - `DlvryPer`: Deliverable quantity to traded quantity percentage.
 - **Authentication**: Publicly accessible official reports. HTTP requests require standard headers (User-Agent, Referer) without violating session quotas.
 - **Update Frequency**: Daily (End of Day).
-- **Licensing & Terms**: Publicly released official market summaries for analytical and research evaluation.
-- **Operational Strategy**: Primary ground truth for Indian market anomaly detection, baseline calculation, and backtesting.
+- **Licensing & Terms**: Evaluated under Tier 2 (Historical Exchange Daily Archives) of [`docs/licensing_matrix.md`](file:///e:/Praxis/TERM%203/MARKET%20SENTINEL%20AI/docs/licensing_matrix.md). Permitted for internal analytical and research evaluation; raw data redistribution is strictly prohibited per NSE Data Sharing & Usage Policy.
+- **Operational Strategy**: Primary ground truth for Indian market anomaly detection, baseline calculation, and backtesting. All downloaded files compute SHA-256 content hashes and UTC retrieval timestamps for complete audit provenance.
 
 ---
 

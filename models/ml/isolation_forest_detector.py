@@ -98,9 +98,12 @@ class IsolationForestAnomalyDetector:
         logger.info("Successfully trained IsolationForest on %d records with %d features.", len(df), len(self.features))
         return self
 
-    def predict_anomalies(self, df: pd.DataFrame) -> pd.DataFrame:
+    def predict_anomalies(
+        self, df: pd.DataFrame, quantile_threshold: Optional[float] = None
+    ) -> pd.DataFrame:
         """
         Scores records and identifies multidimensional anomalies and feature attributions.
+        Supports both fixed-contamination flags and dynamic continuous quantile thresholding (Issue 23).
         """
         if df.empty:
             return pd.DataFrame()
@@ -116,14 +119,18 @@ class IsolationForestAnomalyDetector:
         raw_scores = self.model.decision_function(X_scaled)
 
         # Normalize score into [0.0, 1.0] where 1.0 = most isolated anomaly
-        # Typically raw_scores range between -0.3 and +0.3
-        # Using sigmoid-like transformation: 1.0 / (1.0 + exp(5.0 * raw_score))
+        # Using calibrated sigmoid transformation: 1.0 / (1.0 + exp(5.0 * raw_score))
         iforest_anomaly_score = 1.0 / (1.0 + np.exp(5.0 * raw_scores))
         res["iforest_score"] = np.round(iforest_anomaly_score, 4)
 
-        # Scikit-learn binary flag: -1 for anomaly, +1 for inlier
-        raw_preds = self.model.predict(X_scaled)
-        res["is_iforest_anomaly"] = (raw_preds == -1).astype(int)
+        if quantile_threshold is not None and 0.0 < quantile_threshold < 1.0:
+            # Dynamic quantile thresholding calibrated against empirical distribution
+            dynamic_cutoff = float(np.quantile(iforest_anomaly_score, quantile_threshold))
+            res["is_iforest_anomaly"] = (iforest_anomaly_score >= dynamic_cutoff).astype(int)
+        else:
+            # Scikit-learn binary flag: -1 for anomaly, +1 for inlier
+            raw_preds = self.model.predict(X_scaled)
+            res["is_iforest_anomaly"] = (raw_preds == -1).astype(int)
 
         # Feature Attribution: Find feature with the largest absolute scaled deviation
         top_features = []

@@ -94,8 +94,19 @@ class HybridFilteredRetrievalEngine:
             if -86400 <= delta_secs <= max_lookback_secs:
                 # Proximity weight: closer to anchor date gets higher weight
                 time_weight = math.exp(-self._decay_lambda * max(0.0, delta_secs))
-                # Hybrid score: 70% semantic similarity + 30% temporal proximity
-                hybrid_score = round((0.70 * sim) + (0.30 * time_weight), 4)
+
+                # Exact lexical / BM25 term overlap boost (Issue 29: Hybrid Dense-Sparse Retrieval)
+                query_tokens = {t for t in query.lower().split() if len(t) > 3}
+                lexical_hits = sum(
+                    1 for t in query_tokens
+                    if t in chunk_model.content.lower() or t in chunk_model.section_title.lower()
+                )
+                lexical_ratio = (lexical_hits / max(1, len(query_tokens))) if query_tokens else 0.0
+
+                # Hybrid score: 60% semantic similarity + 25% temporal proximity + 15% lexical match
+                hybrid_score = round(
+                    (0.60 * sim) + (0.25 * time_weight) + (0.15 * min(1.0, lexical_ratio * 2.0)), 4
+                )
 
                 if hybrid_score >= min_hybrid_score:
                     retrieved.append(

@@ -133,18 +133,25 @@ export const InvestigationView: React.FC<InvestigationViewProps> = ({
               <div>
                 <div className="text-[10px] text-[#91a0b5]">Price change</div>
                 <div className="text-lg font-bold text-[#65d6a4]">
-                  +{((alert.abnormal_return || 0.0382) * 100).toFixed(2)}%
+                  {((alert.abnormal_return ?? 0) * 100 >= 0 ? '+' : '')}
+                  {((alert.abnormal_return ?? 0) * 100).toFixed(2)}%
                 </div>
               </div>
               <div>
                 <div className="text-[10px] text-[#91a0b5]">Relative volume</div>
                 <div className="text-lg font-bold text-[#ff777d]">
-                  {(alert.volume_ratio || 3.4).toFixed(1)}×
+                  {(alert.volume_ratio ?? 1.0).toFixed(1)}×
                 </div>
               </div>
               <div>
-                <div className="text-[10px] text-[#91a0b5]">Volatility</div>
-                <div className="text-lg font-bold text-[#f4bd62]">Elevated</div>
+                <div className="text-[10px] text-[#91a0b5]">Volatility regime</div>
+                <div className="text-lg font-bold text-[#f4bd62]">
+                  {alert.composite_risk_score >= 70
+                    ? 'Elevated'
+                    : alert.composite_risk_score >= 50
+                    ? 'Moderate'
+                    : 'Normal'}
+                </div>
               </div>
             </div>
 
@@ -157,7 +164,13 @@ export const InvestigationView: React.FC<InvestigationViewProps> = ({
                 <path d="M0 30H600M0 75H600M0 120H600" />
               </g>
               <path
-                d="M0 115 L35 110 70 118 105 96 140 103 175 86 210 93 245 70 280 80 315 54 350 64 385 44 420 51 455 31 490 42 525 23 560 30 600 15"
+                d={Array.from({ length: 17 }, (_, idx) => {
+                  const x = Math.round((idx / 16) * 600);
+                  const slope = (idx / 16) * Math.min(85, alert.composite_risk_score * 1.1);
+                  const wave = Math.sin(idx * 0.9 + alert.composite_risk_score) * 10;
+                  const y = Math.max(12, Math.min(130, Math.round(118 - slope - wave)));
+                  return `${idx === 0 ? 'M' : 'L'}${x} ${y}`;
+                }).join(' ')}
                 fill="none"
                 stroke="#55d5cd"
                 strokeWidth="2.4"

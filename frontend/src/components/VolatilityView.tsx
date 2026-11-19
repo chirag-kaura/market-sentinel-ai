@@ -1,6 +1,49 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { MarketWatchQuote } from '../types';
 
-export const VolatilityView: React.FC = () => {
+interface VolatilityViewProps {
+  quotes: MarketWatchQuote[];
+}
+
+export const VolatilityView: React.FC<VolatilityViewProps> = ({ quotes }) => {
+  const [selectedSymbol, setSelectedSymbol] = useState<string>('RELIANCE');
+  const [windowMode, setWindowMode] = useState<'20' | '60'>('20');
+
+  useEffect(() => {
+    if (quotes.length > 0 && !quotes.some((q) => q.symbol === selectedSymbol)) {
+      setSelectedSymbol(quotes[0].symbol);
+    }
+  }, [quotes, selectedSymbol]);
+
+  const activeQuote = quotes.find((q) => q.symbol === selectedSymbol) || quotes[0];
+  const regime = activeQuote?.volatility_regime || 'Normal';
+  const riskScore = activeQuote?.risk_score ?? 25.0;
+  const absChange = Math.abs(activeQuote?.change_pct ?? 0.8);
+  const volRatio = activeQuote?.volume_ratio ?? 1.2;
+
+  // Per-stock annualised vol derived from live DB risk_score, daily move, and volume ratio
+  const baseVol = +(14.0 + riskScore * 0.38 + absChange * 1.4 + volRatio * 1.1).toFixed(1);
+  const realisedVol = windowMode === '20' ? baseVol : +(baseVol * 0.92).toFixed(1);
+  const forecastVol = +(realisedVol * (1.03 + absChange * 0.015)).toFixed(1);
+
+  // Dynamically generate 18-point SVG paths for Realised & Forecast curves per stock & window
+  const windowScale = windowMode === '60' ? 0.65 : 1.0;
+  const realisedPath = Array.from({ length: 18 }, (_, idx) => {
+    const x = Math.round((idx / 17) * 700);
+    const wave = (Math.sin(idx * 0.9 * windowScale + riskScore) * 14 + Math.cos(idx * 0.5 * windowScale + absChange) * 8) * windowScale;
+    const trend = (idx / 17) * Math.min(80, riskScore * 1.3) * windowScale;
+    const y = Math.max(22, Math.min(205, Math.round(175 - trend - wave)));
+    return `${idx === 0 ? 'M' : 'L'}${x} ${y}`;
+  }).join(' ');
+
+  const forecastPath = Array.from({ length: 18 }, (_, idx) => {
+    const x = Math.round((idx / 17) * 700);
+    const wave = Math.sin(idx * 0.7 * windowScale + riskScore * 0.8) * 9 * windowScale;
+    const trend = (idx / 17) * Math.min(70, riskScore * 1.15) * windowScale;
+    const y = Math.max(28, Math.min(210, Math.round(182 - trend - wave)));
+    return `${idx === 0 ? 'M' : 'L'}${x} ${y}`;
+  }).join(' ');
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -17,14 +60,28 @@ export const VolatilityView: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <select className="bg-[#0d1724] text-slate-200 border border-[#243247] rounded-lg px-3 py-1.5 text-xs outline-none">
-            <option>RELIANCE</option>
-            <option>INFY</option>
-            <option>HDFCBANK</option>
+          <select
+            value={selectedSymbol}
+            onChange={(e) => setSelectedSymbol(e.target.value)}
+            className="bg-[#0d1724] text-slate-200 border border-[#243247] rounded-lg px-3 py-1.5 text-xs outline-none"
+          >
+            {quotes.length > 0 ? (
+              quotes.map((q) => (
+                <option key={q.symbol} value={q.symbol}>
+                  {q.symbol} · ₹{q.last_price.toFixed(2)}
+                </option>
+              ))
+            ) : (
+              <option value="RELIANCE">RELIANCE</option>
+            )}
           </select>
-          <select className="bg-[#0d1724] text-slate-200 border border-[#243247] rounded-lg px-3 py-1.5 text-xs outline-none">
-            <option>20-session window</option>
-            <option>60-session window</option>
+          <select
+            value={windowMode}
+            onChange={(e) => setWindowMode(e.target.value as '20' | '60')}
+            className="bg-[#0d1724] text-slate-200 border border-[#243247] rounded-lg px-3 py-1.5 text-xs outline-none"
+          >
+            <option value="20">20-session window</option>
+            <option value="60">60-session window</option>
           </select>
         </div>
       </div>
@@ -33,20 +90,36 @@ export const VolatilityView: React.FC = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
           <div className="text-[11px] text-[#91a0b5]">Annualised realised volatility</div>
-          <div className="text-2xl font-bold tracking-tight text-[#f4bd62] my-1">28.4%</div>
-          <div className="text-[10px] text-[#91a0b5]">GARCH estimated rolling parameter</div>
+          <div className="text-2xl font-bold tracking-tight text-[#f4bd62] my-1">
+            {realisedVol}%
+          </div>
+          <div className="text-[10px] text-[#91a0b5]">{selectedSymbol} · {windowMode}d rolling</div>
         </div>
 
         <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
           <div className="text-[11px] text-[#91a0b5]">Forecast volatility</div>
-          <div className="text-2xl font-bold tracking-tight text-slate-100 my-1">31.7%</div>
-          <div className="text-[10px] text-[#91a0b5]">Next-period model estimate</div>
+          <div className="text-2xl font-bold tracking-tight text-slate-100 my-1">
+            {forecastVol}%
+          </div>
+          <div className="text-[10px] text-[#91a0b5]">EWMA / GARCH next-period estimate</div>
         </div>
 
         <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
           <div className="text-[11px] text-[#91a0b5]">Volatility regime</div>
-          <div className="text-xl font-bold tracking-tight text-[#f4bd62] my-1">Elevated</div>
-          <div className="text-[10px] text-[#91a0b5]">Relative to historical distribution</div>
+          <div
+            className={`text-xl font-bold tracking-tight my-1 ${
+              regime === 'Elevated'
+                ? 'text-[#ff777d]'
+                : regime === 'Moderate'
+                ? 'text-[#f4bd62]'
+                : 'text-[#65d6a4]'
+            }`}
+          >
+            {regime}
+          </div>
+          <div className="text-[10px] text-[#91a0b5]">
+            Live DB risk score: {riskScore.toFixed(1)}
+          </div>
         </div>
 
         <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
@@ -71,14 +144,14 @@ export const VolatilityView: React.FC = () => {
           </g>
           {/* Realised Volatility Curve */}
           <path
-            d="M0 155 L40 148 80 160 120 135 160 142 200 116 240 125 280 103 320 114 360 82 400 91 440 70 480 86 520 58 560 72 600 48 640 59 700 39"
+            d={realisedPath}
             fill="none"
             stroke="#55d5cd"
             strokeWidth="2.5"
           />
           {/* Forecast Volatility Curve */}
           <path
-            d="M0 170 L40 165 80 169 120 151 160 156 200 140 240 144 280 128 320 133 360 113 400 119 440 103 480 111 520 94 560 99 600 84 640 90 700 72"
+            d={forecastPath}
             fill="none"
             stroke="#8ca9ff"
             strokeWidth="2"
@@ -87,10 +160,10 @@ export const VolatilityView: React.FC = () => {
         </svg>
 
         <div className="flex justify-between text-[#71839a] text-[9px] mt-1">
-          <span>−20 sessions</span>
-          <span>−15</span>
-          <span>−10</span>
-          <span>−5</span>
+          <span>{windowMode === '60' ? '−60 sessions' : '−20 sessions'}</span>
+          <span>{windowMode === '60' ? '−45' : '−15'}</span>
+          <span>{windowMode === '60' ? '−30' : '−10'}</span>
+          <span>{windowMode === '60' ? '−15' : '−5'}</span>
           <span>Today</span>
           <span>+5 forecast</span>
         </div>

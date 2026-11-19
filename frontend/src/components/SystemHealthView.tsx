@@ -1,6 +1,36 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+
+interface HealthProbe {
+  status: string;
+  components?: Record<string, string>;
+}
 
 export const SystemHealthView: React.FC = () => {
+  const [healthStatus, setHealthStatus] = useState<'Operational' | 'Degraded' | 'Checking...'>('Checking...');
+  const [readyData, setReadyData] = useState<HealthProbe | null>(null);
+  const [showRunbook, setShowRunbook] = useState(false);
+
+  useEffect(() => {
+    async function checkHealth() {
+      try {
+        const [hRes, rRes] = await Promise.all([
+          fetch('http://localhost:8000/health'),
+          fetch('http://localhost:8000/ready'),
+        ]);
+        if (hRes.ok && rRes.ok) {
+          const rJson = await rRes.json();
+          setReadyData(rJson);
+          setHealthStatus('Operational');
+        } else {
+          setHealthStatus('Degraded');
+        }
+      } catch {
+        setHealthStatus('Degraded');
+      }
+    }
+    checkHealth();
+  }, []);
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -16,19 +46,45 @@ export const SystemHealthView: React.FC = () => {
             Monitor data freshness, pipeline execution, model status and service availability.
           </p>
         </div>
-        <button className="border border-[#243247] bg-[#172437] hover:bg-[#1f314a] text-slate-200 px-3 py-1.5 rounded-lg text-xs transition">
-          View operational runbook
+        <button
+          onClick={() => setShowRunbook((prev) => !prev)}
+          className="border border-[#243247] bg-[#172437] hover:bg-[#1f314a] text-slate-200 px-3 py-1.5 rounded-lg text-xs transition"
+        >
+          {showRunbook ? 'Hide operational runbook' : 'View operational runbook'}
         </button>
       </div>
+
+      {showRunbook && (
+        <div className="bg-[#0d1724] border border-[#2d4563] rounded-xl p-4 text-xs text-slate-300 space-y-1.5 shadow-lg">
+          <div className="font-bold text-[#50d5d0] uppercase tracking-wider text-[11px]">
+            Operational Runbook Quick Reference (docs/deployment/production_runbooks.md)
+          </div>
+          <p className="text-[11px] text-[#91a0b5]">
+            • <strong>Refresh Real Market Data</strong>: <code>python scripts/ingest_real_market_data.py</code> (PostgreSQL 16 + Top 15 NSE).
+          </p>
+          <p className="text-[11px] text-[#91a0b5]">
+            • <strong>Backend Health Probes</strong>: <code>GET /health</code> (liveness) &amp; <code>GET /ready</code> (DB + Ensemble ML readiness).
+          </p>
+          <p className="text-[11px] text-[#91a0b5]">
+            • <strong>Run Full Test Suite</strong>: <code>pytest -q</code> (230 unit &amp; integration tests).
+          </p>
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
           <div className="text-[11px] text-[#91a0b5]">Platform status</div>
-          <div className="text-xl font-bold tracking-tight text-[#65d6a4] my-1">
-            Operational
+          <div
+            className={`text-xl font-bold tracking-tight my-1 ${
+              healthStatus === 'Operational' ? 'text-[#65d6a4]' : 'text-[#ff777d]'
+            }`}
+          >
+            {healthStatus}
           </div>
-          <div className="text-[10px] text-[#91a0b5]">All core services healthy</div>
+          <div className="text-[10px] text-[#91a0b5]">
+            {readyData ? 'Live /health & /ready verified' : 'Pinging FastAPI probes...'}
+          </div>
         </div>
 
         <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">

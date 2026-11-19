@@ -102,3 +102,5 @@ export const DossierViewer: React.FC<DossierViewerProps> = ({ alert, onInitiateC
     </div>
   );
 };
+
+export default DossierViewer;

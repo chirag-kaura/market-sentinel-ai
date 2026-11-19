@@ -18,6 +18,16 @@ SCHEMA_PATH = os.path.join(
 )
 
 
+def _safe_json_deserialize(raw_bytes: Optional[bytes]) -> Dict:
+    """Safely deserialize JSON payloads, wrapping malformed bytes so DLQ handles them."""
+    if raw_bytes is None:
+        return {"_malformed_raw": None}
+    try:
+        return json.loads(raw_bytes.decode("utf-8"))
+    except Exception:
+        return {"_malformed_raw": raw_bytes.decode("utf-8", errors="replace")}
+
+
 class NewsEventConsumer:
     """Consumer service for processing streaming news events from Redpanda."""
 
@@ -26,11 +36,11 @@ class NewsEventConsumer:
 
     def __init__(
         self,
-        bootstrap_servers: str = "localhost:19092",
+        bootstrap_servers: Optional[str] = None,
         dlq_file: str = "data/quarantine/invalid_stream_events.jsonl",
         mock_mode: bool = False,
     ):
-        self.bootstrap_servers = bootstrap_servers
+        self.bootstrap_servers = bootstrap_servers or os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
         self.dlq_file = dlq_file
         self.mock_mode = mock_mode
         self.consumer = None
@@ -49,11 +59,11 @@ class NewsEventConsumer:
                     group_id=self.GROUP_ID,
                     enable_auto_commit=False,  # Manual commit post-persistence
                     auto_offset_reset="earliest",
-                    value_deserializer=lambda m: json.loads(m.decode("utf-8")),
+                    value_deserializer=_safe_json_deserialize,
                     consumer_timeout_ms=5000,
                 )
             except Exception as e:
-                logger.warning("Could not connect to Kafka broker on %s: %s. Enabling mock mode.", bootstrap_servers, e)
+                logger.warning("Could not connect to Kafka broker on %s: %s. Enabling mock mode.", self.bootstrap_servers, e)
                 self.mock_mode = True
 
     def route_to_dlq(self, raw_payload: Dict, error_msg: str) -> None:
@@ -89,11 +99,41 @@ class NewsEventConsumer:
         )
         return message_value
 
+    def consume_batch(
+        self,
+        max_messages: int = 50,
+        timeout_ms: int = 1000,
+        max_empty_polls: int = 4,
+    ) -> List[Dict]:
+        """Poll a bounded batch of messages from Redpanda, validate, and return clean records."""
+        if self.mock_mode or not self.consumer:
+            return []
+
+        consumed: List[Dict] = []
+        empty_polls = 0
+
+        while len(consumed) < max_messages and empty_polls < max_empty_polls:
+            remaining = max_messages - len(consumed)
+            records_by_tp = self.consumer.poll(timeout_ms=timeout_ms, max_records=remaining)
+            if not records_by_tp:
+                empty_polls += 1
+                continue
+
+            empty_polls = 0
+            for records in records_by_tp.values():
+                for record in records:
+                    processed = self.process_message(record.value)
+                    if processed is not None:
+                        consumed.append(processed)
+
+        return consumed
+
     def commit_offsets(self):
         """Manually commit Kafka offsets following successful processing."""
         if self.consumer and not self.mock_mode:
-            self.consumer.commit()
-            logger.info("Committed Kafka offsets for group %s", self.GROUP_ID)
+            if self.consumer.assignment():
+                self.consumer.commit()
+                logger.info("Committed Kafka offsets for group %s", self.GROUP_ID)
 
     def close(self):
         """Close consumer connection."""

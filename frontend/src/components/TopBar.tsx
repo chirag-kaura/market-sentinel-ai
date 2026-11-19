@@ -17,12 +17,14 @@ interface TopBarProps {
   currentPage: PageId;
   onToggleSidebar: () => void;
   streamConnected: boolean;
+  backendConnected?: boolean;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
   currentPage,
   onToggleSidebar,
   streamConnected,
+  backendConnected = true,
 }) => {
   return (
     <header className="h-16 border-b border-[#243247] flex items-center justify-between px-6 bg-[#0c131e] sticky top-0 z-10 shrink-0">
@@ -40,9 +42,15 @@ export const TopBar: React.FC<TopBarProps> = ({
       </div>
 
       <div className="flex items-center gap-4">
-        <span className="hidden sm:inline-flex border border-[#765c2f] text-[#f6ce85] bg-[#302718] px-2.5 py-1 rounded-full text-[10px] tracking-wider font-semibold">
-          ● PRODUCTION WORKSPACE
-        </span>
+        {backendConnected ? (
+          <span className="hidden sm:inline-flex border border-[#23583c] text-[#71e8a3] bg-[#102a1d] px-2.5 py-1 rounded-full text-[10px] tracking-wider font-semibold">
+            ● BACKEND CONNECTED
+          </span>
+        ) : (
+          <span className="hidden sm:inline-flex border border-[#802b2b] text-[#ff9999] bg-[#331111] px-2.5 py-1 rounded-full text-[10px] tracking-wider font-semibold animate-pulse" title="FastAPI backend is offline. Offline fallback mock data is currently displayed.">
+            ⚠ BACKEND DISCONNECTED (OFFLINE MOCK)
+          </span>
+        )}
 
         <span className="flex items-center gap-1.5 text-[11px] text-[#91a0b5]">
           <span

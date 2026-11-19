@@ -8,15 +8,40 @@ interface NewsViewProps {
 export const NewsView: React.FC<NewsViewProps> = ({ news }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [sourceFilter, setSourceFilter] = useState<'ALL' | 'OFFICIAL' | 'MEDIA'>('ALL');
+  const [timeFilter, setTimeFilter] = useState<'24H' | '7D' | 'ALL'>('ALL');
 
+  const nowMs = Date.now();
   const filteredNews = news.filter((n) => {
     const matchSearch =
       n.ticker.toLowerCase().includes(searchTerm.toLowerCase()) ||
       n.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       n.headline.toLowerCase().includes(searchTerm.toLowerCase());
     const matchCat = categoryFilter ? n.event_category.toLowerCase().includes(categoryFilter.toLowerCase()) : true;
-    return matchSearch && matchCat;
+
+    const srcLower = n.source_type.toLowerCase();
+    const isOfficial = srcLower.includes('nse') || srcLower.includes('bse') || srcLower.includes('sec') || srcLower.includes('filing') || srcLower.includes('disclosure');
+    const matchSource =
+      sourceFilter === 'OFFICIAL' ? isOfficial : sourceFilter === 'MEDIA' ? !isOfficial : true;
+
+    let matchTime = true;
+    if (timeFilter !== 'ALL') {
+      const pubMs = new Date(n.published_time).getTime();
+      const maxAgeMs = timeFilter === '24H' ? 86400_000 : 7 * 86400_000;
+      if (!Number.isNaN(pubMs)) {
+        matchTime = nowMs - pubMs <= maxAgeMs;
+      }
+    }
+
+    return matchSearch && matchCat && matchSource && matchTime;
   });
+
+  const uniqueCompanies = new Set(filteredNews.map((n) => n.ticker)).size;
+  const highSentimentCount = filteredNews.filter((n) => n.sentiment.toLowerCase() !== 'neutral').length;
+  const officialCount = filteredNews.filter((n) => {
+    const s = n.source_type.toLowerCase();
+    return s.includes('nse') || s.includes('bse') || s.includes('sec') || s.includes('filing') || s.includes('disclosure');
+  }).length;
 
   return (
     <div className="space-y-5">
@@ -34,14 +59,23 @@ export const NewsView: React.FC<NewsViewProps> = ({ news }) => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <select className="bg-[#0d1724] text-slate-200 border border-[#243247] rounded-lg px-3 py-1.5 text-xs outline-none">
-            <option>All sources</option>
-            <option>Official disclosures</option>
-            <option>News providers</option>
+          <select
+            value={sourceFilter}
+            onChange={(e) => setSourceFilter(e.target.value as 'ALL' | 'OFFICIAL' | 'MEDIA')}
+            className="bg-[#0d1724] text-slate-200 border border-[#243247] rounded-lg px-3 py-1.5 text-xs outline-none"
+          >
+            <option value="ALL">All sources ({news.length})</option>
+            <option value="OFFICIAL">Official disclosures</option>
+            <option value="MEDIA">News providers</option>
           </select>
-          <select className="bg-[#0d1724] text-slate-200 border border-[#243247] rounded-lg px-3 py-1.5 text-xs outline-none">
-            <option>Last 24 hours</option>
-            <option>Last 7 days</option>
+          <select
+            value={timeFilter}
+            onChange={(e) => setTimeFilter(e.target.value as '24H' | '7D' | 'ALL')}
+            className="bg-[#0d1724] text-slate-200 border border-[#243247] rounded-lg px-3 py-1.5 text-xs outline-none"
+          >
+            <option value="ALL">All time</option>
+            <option value="24H">Last 24 hours</option>
+            <option value="7D">Last 7 days</option>
           </select>
         </div>
       </div>
@@ -50,26 +84,34 @@ export const NewsView: React.FC<NewsViewProps> = ({ news }) => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
           <div className="text-[11px] text-[#91a0b5]">Documents processed</div>
-          <div className="text-2xl font-bold tracking-tight text-slate-100 my-1">1,284</div>
+          <div className="text-2xl font-bold tracking-tight text-slate-100 my-1">
+            {filteredNews.length}
+          </div>
           <div className="text-[10px] text-[#91a0b5]">Exchange filings & news</div>
         </div>
 
         <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
           <div className="text-[11px] text-[#91a0b5]">Company-linked events</div>
-          <div className="text-2xl font-bold tracking-tight text-slate-100 my-1">86</div>
-          <div className="text-[10px] text-[#91a0b5]">Entity-matched documents</div>
+          <div className="text-2xl font-bold tracking-tight text-slate-100 my-1">
+            {uniqueCompanies}
+          </div>
+          <div className="text-[10px] text-[#91a0b5]">Distinct NSE tickers matched</div>
         </div>
 
         <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
-          <div className="text-[11px] text-[#91a0b5]">High novelty events</div>
-          <div className="text-2xl font-bold tracking-tight text-[#f4bd62] my-1">13</div>
-          <div className="text-[10px] text-[#91a0b5]">Cosine novelty &gt; 0.75</div>
+          <div className="text-[11px] text-[#91a0b5]">High sentiment events</div>
+          <div className="text-2xl font-bold tracking-tight text-[#f4bd62] my-1">
+            {String(highSentimentCount).padStart(2, '0')}
+          </div>
+          <div className="text-[10px] text-[#91a0b5]">|Sentiment| ≥ 0.50</div>
         </div>
 
         <div className="bg-gradient-to-br from-[#131e2d] to-[#101925] border border-[#243247] rounded-xl p-4 shadow-lg">
-          <div className="text-[11px] text-[#91a0b5]">Market-linked alerts</div>
-          <div className="text-2xl font-bold tracking-tight text-slate-100 my-1">07</div>
-          <div className="text-[10px] text-[#91a0b5]">Passed correlation window</div>
+          <div className="text-[11px] text-[#91a0b5]">Official disclosures</div>
+          <div className="text-2xl font-bold tracking-tight text-slate-100 my-1">
+            {String(officialCount).padStart(2, '0')}
+          </div>
+          <div className="text-[10px] text-[#91a0b5]">NSE / BSE / SEC filings</div>
         </div>
       </div>
 

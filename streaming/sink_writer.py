@@ -9,10 +9,12 @@ Persists streaming events (news, corporate disclosures, spikes) to both:
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+import uuid
 
 import pandas as pd
 
@@ -144,12 +146,154 @@ class StreamingSinkWriter:
         logger.info(f"Persisted {len(df_to_save)} {event_type} records to {file_path}")
         return len(df_to_save)
 
+    @staticmethod
+    def _parse_utc_datetime(value: Any) -> datetime:
+        """Parse an ISO timestamp string or datetime into a UTC-aware datetime."""
+        if isinstance(value, datetime):
+            return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+        if isinstance(value, str) and value.strip():
+            cleaned = value.strip()
+            if cleaned.endswith("Z"):
+                cleaned = cleaned[:-1] + "+00:00"
+            try:
+                parsed = datetime.fromisoformat(cleaned)
+                return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+            except ValueError:
+                pass
+        return datetime.now(timezone.utc)
+
     def _write_to_relational(self, event_type: str, records: List[Dict[str, Any]]) -> None:
-        """
-        Placeholder / hook for relational persistence via SQLAlchemy session.
-        In mock or offline environments, logs execution.
-        """
+        """Persist buffered streaming records idempotently to the relational database."""
+        if self.db_session_factory is None or not records:
+            return
+
+        if event_type == "spikes":
+            logger.info("Skipping relational upsert for %d spike window records (archived in Parquet).", len(records))
+            return
+
+        from backend.models.market import (
+            CorporateAnnouncementModel,
+            NewsArticleModel,
+            RiskAlertModel,
+            SymbolMasterModel,
+        )
+
+        session = self.db_session_factory()
+        inserted = 0
         try:
-            logger.info(f"Writing {len(records)} {event_type} records to relational database")
+            valid_symbols = {row[0] for row in session.query(SymbolMasterModel.symbol).all()}
+
+            if event_type == "news":
+                seen_urls = set()
+                for record in records:
+                    url = str(record.get("canonical_url") or "").strip()[:1000]
+                    title = str(record.get("title") or "").strip()[:500]
+                    if not url or not title or url in seen_urls:
+                        continue
+                    seen_urls.add(url)
+                    existing = session.query(NewsArticleModel).filter_by(canonical_url=url).first()
+                    if existing is None:
+                        session.add(
+                            NewsArticleModel(
+                                id=str(record.get("event_id") or uuid.uuid4())[:36],
+                                canonical_url=url,
+                                title=title,
+                                summary=record.get("summary"),
+                                body_text=record.get("body_text"),
+                                source_outlet=str(record.get("source_outlet") or "Unknown")[:100],
+                                published_at_utc=self._parse_utc_datetime(record.get("published_at_utc")),
+                                sentiment_score=0.0,
+                                retrieval_timestamp_utc=self._parse_utc_datetime(record.get("ingested_at_utc")),
+                                content_hash=record.get("headline_hash"),
+                            )
+                        )
+                        inserted += 1
+
+            elif event_type == "corporate":
+                seen_keys = set()
+                for record in records:
+                    sym = str(record.get("symbol") or "").strip().upper()[:20]
+                    subject = str(record.get("subject") or "").strip()[:500]
+                    if not sym or sym not in valid_symbols or not subject:
+                        continue
+                    c_hash = hashlib.sha256(f"{sym}:{subject}".encode("utf-8")).hexdigest()
+                    if (sym, c_hash) in seen_keys:
+                        continue
+                    seen_keys.add((sym, c_hash))
+                    existing = (
+                        session.query(CorporateAnnouncementModel)
+                        .filter_by(symbol=sym, content_hash=c_hash)
+                        .first()
+                    )
+                    if existing is None:
+                        att_url = record.get("attachment_url")
+                        session.add(
+                            CorporateAnnouncementModel(
+                                id=str(record.get("event_id") or uuid.uuid4())[:36],
+                                symbol=sym,
+                                category=str(record.get("category") or "CORPORATE_UPDATE")[:100],
+                                subject=subject,
+                                body_text=record.get("body_text"),
+                                attachment_url=str(att_url)[:1000] if att_url else None,
+                                published_at_utc=self._parse_utc_datetime(record.get("published_at_utc")),
+                                source_provider=str(record.get("source_provider") or "SRC-REDPANDA-STREAM")[:50],
+                                retrieval_timestamp_utc=self._parse_utc_datetime(record.get("ingested_at_utc")),
+                                content_hash=c_hash,
+                            )
+                        )
+                        inserted += 1
+
+            elif event_type == "alerts":
+                seen_ids = set()
+                for record in records:
+                    sym = str(record.get("symbol") or record.get("ticker") or "").strip().upper()[:20]
+                    if not sym or sym not in valid_symbols:
+                        continue
+                    alert_id = str(
+                        record.get("alert_id") or record.get("id") or record.get("event_id") or uuid.uuid4()
+                    )[:36]
+                    if alert_id in seen_ids:
+                        continue
+                    seen_ids.add(alert_id)
+                    existing = session.query(RiskAlertModel).filter_by(id=alert_id).first()
+                    if existing is None:
+                        dt = self._parse_utc_datetime(
+                            record.get("timestamp") or record.get("created_at_utc") or record.get("alert_date")
+                        )
+                        raw_score = (
+                            record.get("composite_risk_score")
+                            if record.get("composite_risk_score") is not None
+                            else record.get("risk_score", 0.0)
+                        )
+                        session.add(
+                            RiskAlertModel(
+                                id=alert_id,
+                                symbol=sym,
+                                alert_date=dt.date(),
+                                risk_score=float(raw_score),
+                                priority_tier=str(record.get("priority_tier") or record.get("priority") or "MEDIUM")[:20],
+                                alert_category=str(
+                                    record.get("alert_category") or record.get("anomaly_type") or "SURVEILLANCE_ANOMALY"
+                                )[:50],
+                                summary_explanation=record.get("summary_explanation"),
+                                abnormal_return=record.get("abnormal_return"),
+                                volume_ratio=record.get("volume_ratio"),
+                                sentiment_score=record.get("sentiment_score"),
+                                novelty_score=record.get("novelty_score"),
+                                has_matching_news=bool(record.get("has_matching_news", False)),
+                                dossier_status=str(record.get("dossier_status") or "PENDING")[:30],
+                                review_status=str(record.get("review_status") or "UNREVIEWED")[:30],
+                                citations=list(record.get("citations") or []),
+                                model_version=str(record.get("model_version") or "1.0.0")[:50],
+                                created_at_utc=dt,
+                            )
+                        )
+                        inserted += 1
+
+            session.commit()
+            logger.info("Relational sink persisted %d new %s records (batch=%d).", inserted, event_type, len(records))
         except Exception as err:
-            logger.error(f"Relational write failed: {err}")
+            session.rollback()
+            logger.error("Relational write failed for %s: %s", event_type, err)
+        finally:
+            session.close()
